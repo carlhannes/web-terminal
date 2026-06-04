@@ -30,7 +30,12 @@ import {
   reconcileLayout,
 } from "@/components/terminal/types";
 import { PaneTree } from "@/components/terminal/PaneTree";
+import { TerminalPane } from "@/components/terminal/TerminalPane";
+import { MobileKeyBar } from "@/components/terminal/MobileKeyBar";
+import { MobilePaneSwitcher } from "@/components/terminal/MobilePaneSwitcher";
 import { useTerminalGateway } from "@/hooks/useTerminalGateway";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { useViewportHeight } from "@/hooks/useViewportHeight";
 import { gatewayHttpBase } from "@/lib/terminal-gateway";
 
 export const Route = createFileRoute("/app")({
@@ -49,6 +54,8 @@ type TabIntent = { kind: "tab"; session: string };
 
 function AppPage() {
   const { client, sessions, status } = useTerminalGateway();
+  const isMobile = useIsMobile();
+  const viewportHeight = useViewportHeight();
 
   const [layouts, setLayouts] = useState<Record<string, DesktopLayout>>({});
   const [activeSession, setActiveSession] = useState<string | null>(null);
@@ -152,6 +159,20 @@ function AppPage() {
   const activeTabId = activeSession ? activeTabBySession[activeSession] : undefined;
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
 
+  // Mobile flattens the split tree to a single full-screen pane (the active leaf) plus a
+  // switcher; the tree itself is never mutated, so the desktop split survives.
+  const leaves = activeTab ? leafWindowIds(activeTab.tree) : [];
+  const activeLeaf =
+    focusedWindowId && leaves.includes(focusedWindowId)
+      ? focusedWindowId
+      : activeTab?.activeWindowId && leaves.includes(activeTab.activeWindowId)
+        ? activeTab.activeWindowId
+        : (leaves[0] ?? null);
+  // Send raw bytes (from the mobile key bar) to the active pane.
+  const sendKey = (data: string) => {
+    if (activeSession && activeLeaf) client.sendInput(activeSession, activeLeaf, data);
+  };
+
   // ---- operations ----
   function selectDesktop(name: string) {
     setActiveSession(name);
@@ -214,7 +235,10 @@ function AppPage() {
   const connecting = status === "connecting" || status === "reconnecting";
 
   return (
-    <div className="flex h-screen w-screen flex-col bg-background text-foreground">
+    <div
+      className="flex h-dvh w-screen flex-col bg-background text-foreground"
+      style={viewportHeight ? { height: `${viewportHeight}px` } : undefined}
+    >
       {/* Tab bar */}
       <div
         className="flex h-9 shrink-0 items-end gap-1 px-2 transition-colors"
@@ -240,7 +264,7 @@ function AppPage() {
                   e.stopPropagation();
                   closeTab(t);
                 }}
-                className="rounded p-0.5 opacity-0 hover:bg-muted group-hover:opacity-100"
+                className="touch-visible rounded p-0.5 opacity-0 hover:bg-muted group-hover:opacity-100"
                 aria-label="Close tab"
               >
                 <X size={11} />
@@ -272,18 +296,31 @@ function AppPage() {
       {/* Body: terminal area + right desktop rail */}
       <div className="flex min-h-0 flex-1">
         <div className="relative min-w-0 flex-1">
-          {activeTab ? (
-            <PaneTree
-              node={activeTab.tree}
-              session={activeSession as string}
-              client={client}
-              status={status}
-              activeWindowId={focusedWindowId ?? activeTab.activeWindowId}
-              onFocus={setFocusedWindowId}
-              onSplit={splitPane}
-              onClose={closePane}
-              onResize={resizeSplit}
-            />
+          {activeTab && activeLeaf ? (
+            isMobile ? (
+              // Mobile: ignore the split layout — show only the active leaf full-screen.
+              <TerminalPane
+                key={activeLeaf}
+                client={client}
+                session={activeSession as string}
+                windowId={activeLeaf}
+                active
+                status={status}
+                onFocus={() => setFocusedWindowId(activeLeaf)}
+              />
+            ) : (
+              <PaneTree
+                node={activeTab.tree}
+                session={activeSession as string}
+                client={client}
+                status={status}
+                activeWindowId={focusedWindowId ?? activeTab.activeWindowId}
+                onFocus={setFocusedWindowId}
+                onSplit={splitPane}
+                onClose={closePane}
+                onResize={resizeSplit}
+              />
+            )
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
               {status === "open" ? "Starting your session…" : `${status}…`}
@@ -329,6 +366,17 @@ function AppPage() {
           </button>
         </div>
       </div>
+
+      {/* Mobile bottom stack: pane switcher (only when split) + accessory key bar. */}
+      {isMobile && leaves.length > 1 && (
+        <MobilePaneSwitcher
+          leaves={leaves}
+          activeLeaf={activeLeaf}
+          onSelect={setFocusedWindowId}
+          onClose={closePane}
+        />
+      )}
+      {isMobile && <MobileKeyBar onKey={sendKey} />}
     </div>
   );
 }

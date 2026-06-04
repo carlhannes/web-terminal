@@ -106,3 +106,20 @@
     color: var(--color-foreground);
   }
 }
+
+/*
+ * Mobile / touch adaptations. The media query MUST stay identical to MOBILE_MQ in
+ * src/hooks/useIsMobile.ts (single source of truth for "touch or narrow").
+ */
+@media (pointer: coarse), (max-width: 640px) {
+  /* Reveal controls that are otherwise only shown on hover (no hover on touch). */
+  .touch-visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Keep the bottom key bar / pane switcher clear of the iPhone home indicator. */
+  .mobile-bottom-stack:last-child {
+    padding-bottom: max(0.25rem, env(safe-area-inset-bottom));
+  }
+}
