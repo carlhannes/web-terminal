@@ -9,7 +9,7 @@ well-scoped.
 | --- | --- | --- |
 | Web app (React + xterm.js, TanStack Start) | `src/` | [README](README.md) |
 | Terminal gateway (`ws` + `ssh2` + tmux), a separate Node process | `server/` | [server/README.md](server/README.md) |
-| Deployment (Podman/Docker, Caddy, Quadlet) | `deploy/` | [deploy/README.md](deploy/README.md) |
+| Deployment (Podman/Docker, Caddy, systemd boot installer) | `deploy/` | [deploy/README.md](deploy/README.md) |
 
 The gateway and the browser share one wire/layout definition in `server/protocol.ts`
 (single source of truth). The gateway is intentionally separate from the web app because

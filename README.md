@@ -14,7 +14,7 @@ windows; the web split layout is a best-effort presentation persisted per user.
   (`npm run build` → `node .output/server/index.mjs`).
 - **Terminal gateway** — a standalone Node service (`ws` + `ssh2` + tmux) in `server/`,
   separate from the web app. See **[`server/README.md`](server/README.md)**.
-- **Deploy** — Podman containers + a Caddy reverse proxy + systemd Quadlet units. See
+- **Deploy** — Podman/Docker containers + a Caddy reverse proxy + a one-command systemd boot installer. See
   **[`deploy/README.md`](deploy/README.md)**.
 
 ## Quick start (local eval, all in Podman/Docker)
@@ -28,7 +28,7 @@ deploy/run-local.sh down            # tear it down
 The target host must run `sshd`, have `tmux` installed, and allow **password** auth.
 The script serves loopback over plain HTTP and the LAN over **HTTPS** with a self-signed
 cert (generated on first start; browsers warn once). Other machines use
-`https://<host-ip>:8443`. Full details + production Quadlet setup in
+`https://<host-ip>:8443`. Full details + the systemd boot installer in
 [`deploy/README.md`](deploy/README.md).
 
 ## Development

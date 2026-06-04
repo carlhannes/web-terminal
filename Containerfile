@@ -24,7 +24,7 @@ COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
 # NOTE: NODE_ENV is intentionally NOT set here. The gateway requires SSH_KNOWN_HOSTS when
 # NODE_ENV=production (host-key pinning), so set NODE_ENV=production + SSH_KNOWN_HOSTS at
-# run time (Quadlet/EnvironmentFile) for the gateway in production.
+# run time (e.g. deploy/service.env / an EnvironmentFile) for the gateway in production.
 EXPOSE 3000 8081
 
 # Default role = app. The gateway container overrides this with: npm run gateway:start

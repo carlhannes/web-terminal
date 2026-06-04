@@ -66,8 +66,8 @@ Then `npm run dev`, open the app, log in with `demo` / `demo`.
 4. Close the browser tab, reopen → same sessions/scrollback (tmux persisted).
 5. Wrong password → rejected; repeated wrong tries → rate-limited (429).
 
-To run the **whole stack** (app + gateway + reverse proxy) in Podman — including
-systemd Quadlet units for production — see [`deploy/README.md`](../deploy/README.md).
+To run the **whole stack** (app + gateway + reverse proxy) and to start it on boot via a
+one-command systemd installer, see [`deploy/README.md`](../deploy/README.md).
 (`podman` and `docker` CLIs are interchangeable here.)
 
 ## Security (production)

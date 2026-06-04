@@ -26,7 +26,7 @@ Goals, in priority order:
 | --- | --- | --- |
 | Web app — TanStack Start + React + xterm.js (routes are `ssr:false`) | `src/` | [README.md](README.md) |
 | Gateway — a **separate** Node process (`ws` + `ssh2` + tmux) | `server/` | [server/README.md](server/README.md) |
-| Deployment — Podman/Docker, Caddy, systemd Quadlet | `deploy/` | [deploy/README.md](deploy/README.md) |
+| Deployment — Podman/Docker, Caddy, systemd boot installer | `deploy/` | [deploy/README.md](deploy/README.md) |
 
 - The gateway is deliberately separate from the web app because TanStack Start can't reliably
   serve WebSocket upgrades. The browser and gateway share **one** wire/layout definition in

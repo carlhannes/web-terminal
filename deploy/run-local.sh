@@ -14,7 +14,8 @@
 #   deploy/run-local.sh          # build + start everything; prints the URLs
 #   deploy/run-local.sh down     # stop + remove everything
 #
-# Override defaults via env: ENGINE, HTTP_PORT, HTTPS_PORT, NETWORK, IMAGE, SSH_HOST, SSH_PORT.
+# Override defaults via env: ENGINE, HTTP_PORT, HTTPS_PORT, NETWORK, IMAGE, SSH_HOST, SSH_PORT,
+# NO_BUILD (=1 reuses an existing image instead of rebuilding).
 set -euo pipefail
 
 # Pick a container engine (prefer podman; fall back to docker).
@@ -76,21 +77,30 @@ remove_containers
 echo "==> Network: $NETWORK"
 "$ENGINE" network inspect "$NETWORK" >/dev/null 2>&1 || "$ENGINE" network create "$NETWORK"
 
-echo "==> Building app+gateway image ($IMAGE)… (first build pulls the node base image)"
-"$ENGINE" build -t "$IMAGE" -f "$ROOT/Containerfile" "$ROOT"
+# Build the image. NO_BUILD=1 reuses an existing image (used by the systemd service so
+# reboots don't rebuild); it still builds if the image is missing (self-heal). Default
+# (NO_BUILD unset) always rebuilds, so `down && up` picks up code changes.
+if [ -n "${NO_BUILD:-}" ] && "$ENGINE" image inspect "$IMAGE" >/dev/null 2>&1; then
+  echo "==> Reusing existing image $IMAGE (NO_BUILD set)"
+else
+  echo "==> Building app+gateway image ($IMAGE)… (first build pulls the node base image)"
+  "$ENGINE" build -t "$IMAGE" -f "$ROOT/Containerfile" "$ROOT"
+fi
 
+# --restart unless-stopped: the engine restarts a crashed container on its own.
 echo "==> Starting app…"
-"$ENGINE" run -d --name webterm-app --network "$NETWORK" -e PORT=3000 "$IMAGE" >/dev/null
+"$ENGINE" run -d --name webterm-app --network "$NETWORK" --restart unless-stopped \
+  -e PORT=3000 "$IMAGE" >/dev/null
 
 echo "==> Starting gateway (SSH -> $SSH_HOST:$SSH_PORT)…"
 # --add-host maps host.containers.internal to the host even on a user-defined network.
-"$ENGINE" run -d --name webterm-gateway --network "$NETWORK" \
+"$ENGINE" run -d --name webterm-gateway --network "$NETWORK" --restart unless-stopped \
   --add-host=host.containers.internal:host-gateway \
   -e GATEWAY_BIND=0.0.0.0 -e SSH_HOST="$SSH_HOST" -e SSH_PORT="$SSH_PORT" \
   "$IMAGE" npm run gateway:start >/dev/null
 
 echo "==> Starting reverse proxy (HTTP 127.0.0.1:${HTTP_PORT}, HTTPS :${HTTPS_PORT})…"
-"$ENGINE" run -d --name webterm-proxy --network "$NETWORK" \
+"$ENGINE" run -d --name webterm-proxy --network "$NETWORK" --restart unless-stopped \
   -p "127.0.0.1:${HTTP_PORT}:80" \
   -p "${HTTPS_PORT}:443" \
   -v "$ROOT/deploy/Caddyfile.local:/etc/caddy/Caddyfile:ro,Z" \

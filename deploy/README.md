@@ -82,45 +82,48 @@ deploy/run-local.sh down
 
 ---
 
-## B. Production (systemd Quadlet)
+## B. Run on boot (systemd — any engine)
 
-In production the gateway points at your **real** host (real user accounts), not a
-container. Quadlet runs the containers as systemd services (Podman's compose replacement).
+Register the stack to start automatically on boot. One command, works with podman **or**
+docker, rootful or rootless:
 
 ```sh
-# 1) build the image on the host (or pull from your registry)
-podman build -t webterm .
-
-# 2) install unit + config files (rootless example; rootful: /etc/containers/systemd/ and /etc/webterm/)
-mkdir -p ~/.config/containers/systemd ~/.config/webterm
-cp deploy/quadlet/webterm.network        ~/.config/containers/systemd/
-cp deploy/quadlet/webterm-app.container  ~/.config/containers/systemd/
-cp deploy/quadlet/webterm-gateway.container ~/.config/containers/systemd/
-cp deploy/quadlet/webterm-proxy.container ~/.config/containers/systemd/
-cp deploy/Caddyfile                      ~/.config/webterm/Caddyfile
-cp deploy/quadlet/gateway.env.example    ~/.config/webterm/gateway.env   # then EDIT it
-
-# 3) provide the pinned host key (required when NODE_ENV=production)
-ssh-keyscan -p 22 your-ssh-host > ~/.config/webterm/known_hosts
-
-# 4) set your domain in webterm-proxy.container (SITE_ADDRESS=) and ALLOWED_ORIGIN in gateway.env
-
-# 5) start
-systemctl --user daemon-reload
-systemctl --user start webterm-proxy   # pulls up app + gateway via Requires=
+deploy/install-service.sh            # install + enable + start web-terminal.service
+deploy/install-service.sh uninstall  # remove it
 ```
 
-Edit `~/.config/webterm/gateway.env` (template: `deploy/quadlet/gateway.env.example`):
-set `SSH_HOST` (use `host.containers.internal` if sshd is on the Podman host), `NODE_ENV=production`,
-`SSH_KNOWN_HOSTS=/etc/webterm/known_hosts`, `COOKIE_SECURE=true`, and
-`ALLOWED_ORIGIN=https://your-domain`.
+- As **root** → a system service (`/etc/systemd/system`); starts at boot for everyone.
+- As a **regular user** → a user service (`~/.config/systemd/user`) + `loginctl enable-linger`;
+  starts at boot for you (rootless-Podman best practice).
+
+It wraps `deploy/run-local.sh`, so the same secure-by-default networking applies (loopback
+HTTP + self-signed LAN HTTPS). The first start builds the image (minutes — the unit sets
+`TimeoutStartSec=0`); reboots reuse it (`NO_BUILD=1`).
+
+**Configure without editing the unit:** put `KEY=VALUE` lines in `deploy/service.env` (copy
+what you need from `.env.example`), then `systemctl [--user] restart web-terminal`:
+
+```sh
+# deploy/service.env  (example for a real host)
+SSH_HOST=host.containers.internal      # or the host's LAN IP
+HTTPS_PORT=8443
+```
+
+### Production with a real domain (trusted cert)
+
+The boot service serves a **self-signed** cert (fine for LAN/IP). For a public domain with a
+browser-trusted cert, front the app + gateway with a reverse proxy that does ACME —
+`deploy/Caddyfile` is a ready template (set `SITE_ADDRESS=your-domain`; it routes `/ws`+`/auth`
+→ gateway and everything else → app). Then set `NODE_ENV=production`, a pinned
+`SSH_KNOWN_HOSTS` (`ssh-keyscan -p 22 your-host > /etc/webterm/known_hosts`), `COOKIE_SECURE=true`,
+and `ALLOWED_ORIGIN=https://your-domain` in `deploy/service.env`.
 
 ---
 
 ## Networking & gotchas
 - **Gateway → host sshd:** `SSH_HOST=host.containers.internal` reaches the Podman host. If
   it doesn't resolve in your Podman/networking setup, use the host's LAN IP, or add
-  `--add-host=host.containers.internal:host-gateway` (run) / `AddHost=` (Quadlet).
+  `--add-host=host.containers.internal:host-gateway` (the launcher already does this).
 - **Gateway bind:** must be `GATEWAY_BIND=0.0.0.0` *inside* the container so the proxy can
   reach it. It stays private because the container's port is not published — only Caddy is.
 - **Rootless Podman:** publish loopback (`-p 127.0.0.1:…`) and use ports >1024 for the proxy
@@ -146,4 +149,4 @@ set `SSH_HOST` (use `host.containers.internal` if sshd is on the Podman host), `
 
 > Not verified in CI — these artifacts were authored against Podman's documented behavior
 > but exercised by you on the target host. The pure app/gateway code is unit-tested and the
-> Node server build is verified; the container/proxy/Quadlet wiring is what to sanity-check here.
+> Node server build is verified; the container/proxy/systemd wiring is what to sanity-check here.
