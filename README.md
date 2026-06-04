@@ -1,3 +1,6 @@
+<img width="1024" height="547" alt="image" src="https://github.com/user-attachments/assets/95d8e825-4f98-4762-bfa7-225c0d5082c3" />
+
+
 # Web Terminal
 
 A browser-based, **persistent** SSH terminal. You log in as an ordinary SSH user; your
