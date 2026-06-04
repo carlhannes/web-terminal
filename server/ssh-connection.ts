@@ -15,6 +15,36 @@ export interface Dims {
   rows: number;
 }
 
+// Coarse, safe-to-surface reason for a failed SSH connect. Without this, the auth
+// catch site reports every failure identically, so a reboot that breaks container->host
+// networking looks the same as a wrong password ("authentication failed").
+export type AuthFailReason = "bad-credentials" | "host-unreachable" | "host-key" | "other";
+
+// Classify an ssh2 connect/handshake failure. ssh2 tags errors with `level` (verified
+// against ssh2/lib/client.js): bad creds => "client-authentication"; no TCP / no DNS /
+// handshake timeout => "client-socket" / "client-dns" / "client-timeout"; host-key
+// rejection => "handshake". `detail` (level/code/message) is for the server log only and
+// never contains the password — ssh2 errors don't carry it.
+export function classifyConnectError(err: unknown): { reason: AuthFailReason; detail: string } {
+  const e = (err ?? {}) as { level?: unknown; code?: unknown; message?: unknown };
+  const level = typeof e.level === "string" ? e.level : "";
+  const code = typeof e.code === "string" ? e.code : "";
+  const message = typeof e.message === "string" ? e.message : String(err);
+  const detail = [level && `level=${level}`, code && `code=${code}`, message]
+    .filter(Boolean)
+    .join(" ");
+
+  // Check auth first so a genuine bad password is never mis-tagged. NOTE: a host with
+  // `PasswordAuthentication no` also lands here — the server log disambiguates; the
+  // client message stays coarse (we never reveal whether the username exists).
+  if (level === "client-authentication") return { reason: "bad-credentials", detail };
+  if (level === "client-socket" || level === "client-dns" || level === "client-timeout")
+    return { reason: "host-unreachable", detail };
+  if (level === "handshake" || /host (verification|key)|hostkey|fingerprint/i.test(message))
+    return { reason: "host-key", detail };
+  return { reason: "other", detail };
+}
+
 // One ssh2 connection per authenticated user, reused for many channels:
 // short-lived `exec` channels for tmux control ops (serialized) and one
 // interactive shell channel per attached pane (the live stream).

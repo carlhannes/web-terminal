@@ -15,6 +15,17 @@ export const Route = createFileRoute("/login")({
   ssr: false,
 });
 
+// Map the gateway's auth response to a human message. The gateway distinguishes a
+// wrong password from an unreachable host (502 / reason "host-unreachable") so a reboot
+// that breaks container->host networking no longer reads as a credentials problem.
+function messageForError(status: number, reason?: string): string {
+  if (status === 429) return "Too many attempts — please wait and try again.";
+  if (status === 502 || reason === "host-unreachable")
+    return "Can't reach the SSH host — check it's running and reachable from the gateway.";
+  if (reason === "host-key") return "Host key changed or untrusted — contact the administrator.";
+  return "Wrong username or password.";
+}
+
 function LoginPage() {
   const navigate = useNavigate();
   const [user, setUser] = useState("");
@@ -34,11 +45,8 @@ function LoginPage() {
         body: JSON.stringify({ username: user, password: pass }),
       });
       if (!res.ok) {
-        setError(
-          res.status === 429
-            ? "Too many attempts — please wait and try again."
-            : "Authentication failed.",
-        );
+        const body = (await res.json().catch(() => ({}))) as { reason?: string };
+        setError(messageForError(res.status, body.reason));
         setLoading(false);
         return;
       }
@@ -91,7 +99,8 @@ function LoginPage() {
           {loading ? "Connecting…" : "Connect"}
         </button>
         <p className="mt-3 text-center text-[11px] text-muted-foreground">
-          Connects over SSH to the configured host; your terminals persist via tmux.
+          Connects over SSH to the configured host; your terminals persist via tmux. Sessions are
+          in-memory — after a server reboot you sign in again.
         </p>
       </form>
     </div>

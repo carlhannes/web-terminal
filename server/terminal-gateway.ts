@@ -8,7 +8,7 @@ import type { ClientChannel, ConnectConfig } from "ssh2";
 import { getGatewayConfig, type GatewayConfig } from "./config";
 import { Registry, RateLimiter } from "./registry";
 import { LayoutStore } from "./layout-store";
-import { UserConnection } from "./ssh-connection";
+import { UserConnection, classifyConnectError } from "./ssh-connection";
 import {
   ClientMsgSchema,
   type ClientMsg,
@@ -499,9 +499,15 @@ function main() {
       res.setHeader("Set-Cookie", cookieString(sid, cfg));
       log.info("auth ok", { user: username });
       sendJson(res, 200, { ok: true, user: username });
-    } catch {
-      log.warn("auth failed", { user: username, ip });
-      sendJson(res, 401, { error: "authentication failed" });
+    } catch (err) {
+      // Report the real cause (never the password): a reboot that breaks container->host
+      // networking otherwise looks identical to a wrong password. `reason` is host-level
+      // (reachable? key trusted?), not a per-username oracle, so surfacing it is safe.
+      const { reason, detail } = classifyConnectError(err);
+      log.warn("auth failed", { user: username, ip, reason, detail });
+      if (reason === "host-unreachable")
+        return sendJson(res, 502, { error: "host unreachable", reason });
+      sendJson(res, 401, { error: "authentication failed", reason });
     }
   }
 

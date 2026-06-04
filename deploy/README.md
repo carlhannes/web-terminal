@@ -109,6 +109,11 @@ SSH_HOST=host.containers.internal      # or the host's LAN IP
 HTTPS_PORT=8443
 ```
 
+> **A reboot signs everyone out** — the gateway holds each live SSH connection in memory and
+> never stores your password, so the pre-reboot session can't be resumed. Just log in again;
+> your tmux desktops are intact. If a *fresh* login then fails, see
+> [Troubleshooting](#troubleshooting-login-fails-after-a-reboot) below.
+
 ### Production with a real domain (trusted cert)
 
 The boot service serves a **self-signed** cert (fine for LAN/IP). For a public domain with a
@@ -119,6 +124,40 @@ browser-trusted cert, front the app + gateway with a reverse proxy that does ACM
 and `ALLOWED_ORIGIN=https://your-domain` in `deploy/service.env`.
 
 ---
+
+## Troubleshooting: login fails after a reboot
+
+A reboot does **not** keep you logged in (see the note above) — sign in again; your tmux
+desktops persist. If the **fresh** login then fails, the gateway now names the cause. Read it:
+
+```sh
+journalctl --user -u web-terminal -e     # user service (drop --user if installed as root)
+# or directly:  podman logs webterm-gateway
+```
+
+Find the `auth failed` line and check its `reason`:
+
+- **`reason:"bad-credentials"`** — the host rejected the password. The usual reboot culprit is
+  the host quietly resetting `PasswordAuthentication` to `no` (a cloud-image default or an
+  unattended-upgrades rewrite of `sshd_config`). Make it stick with a drop-in that wins over
+  the defaults:
+  ```sh
+  echo 'PasswordAuthentication yes' | sudo tee /etc/ssh/sshd_config.d/00-webterm.conf
+  sudo systemctl reload ssh
+  sudo sshd -T | grep -i passwordauthentication      # should print "yes"
+  ```
+- **`reason:"host-unreachable"`** — the gateway container can't reach the host's sshd. Check
+  name resolution from inside the container: `podman exec webterm-gateway getent hosts
+  host.containers.internal`. Rootless Podman has known *after-reboot* quirks here — Podman 5.0.0
+  shipped an invalid IP for `host.containers.internal` (fixed in ≥5.0.1), and a stopped
+  `netavark-dhcp-proxy.socket` breaks that name. The robust fix is to pin a stable address:
+  ```sh
+  echo 'SSH_HOST=10.0.0.5' >> deploy/service.env     # the host's real LAN IP
+  systemctl --user restart web-terminal
+  ```
+  Also confirm a host firewall that reloaded at boot isn't blocking the container subnet on tcp/22.
+- **`reason:"host-key"`** — the presented host key didn't match the pinned `SSH_KNOWN_HOSTS`
+  (prod only). Re-pin if the host was rebuilt: `ssh-keyscan -p 22 your-host > /etc/webterm/known_hosts`.
 
 ## Networking & gotchas
 - **Gateway → host sshd:** `SSH_HOST=host.containers.internal` reaches the Podman host. If
