@@ -98,7 +98,8 @@ deploy/install-service.sh uninstall  # remove it
 
 It wraps `deploy/run-local.sh`, so the same secure-by-default networking applies (loopback
 HTTP + self-signed LAN HTTPS). The first start builds the image (minutes — the unit sets
-`TimeoutStartSec=0`); reboots reuse it (`NO_BUILD=1`).
+`TimeoutStartSec=0`); later starts reuse the layer cache, so an unchanged reboot is fast and a
+`git pull` is rebuilt automatically on the next restart.
 
 **Configure without editing the unit:** put `KEY=VALUE` lines in `deploy/service.env` (copy
 what you need from `.env.example`), then `systemctl [--user] restart web-terminal`:

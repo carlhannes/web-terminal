@@ -64,8 +64,6 @@ TimeoutStartSec=0
 WorkingDirectory=$ROOT
 # Optional overrides (SSH_HOST, HTTP_PORT, …); '-' = fine if the file is absent.
 EnvironmentFile=-$ENV_FILE
-# Reuse the existing image on reboots instead of rebuilding (still builds if missing).
-Environment=NO_BUILD=1
 ExecStart=$RUN
 ExecStop=$RUN down
 

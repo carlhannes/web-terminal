@@ -14,8 +14,7 @@
 #   deploy/run-local.sh          # build + start everything; prints the URLs
 #   deploy/run-local.sh down     # stop + remove everything
 #
-# Override defaults via env: ENGINE, HTTP_PORT, HTTPS_PORT, NETWORK, IMAGE, SSH_HOST, SSH_PORT,
-# NO_BUILD (=1 reuses an existing image instead of rebuilding).
+# Override defaults via env: ENGINE, HTTP_PORT, HTTPS_PORT, NETWORK, IMAGE, SSH_HOST, SSH_PORT.
 set -euo pipefail
 
 # Pick a container engine (prefer podman; fall back to docker).
@@ -77,15 +76,11 @@ remove_containers
 echo "==> Network: $NETWORK"
 "$ENGINE" network inspect "$NETWORK" >/dev/null 2>&1 || "$ENGINE" network create "$NETWORK"
 
-# Build the image. NO_BUILD=1 reuses an existing image (used by the systemd service so
-# reboots don't rebuild); it still builds if the image is missing (self-heal). Default
-# (NO_BUILD unset) always rebuilds, so `down && up` picks up code changes.
-if [ -n "${NO_BUILD:-}" ] && "$ENGINE" image inspect "$IMAGE" >/dev/null 2>&1; then
-  echo "==> Reusing existing image $IMAGE (NO_BUILD set)"
-else
-  echo "==> Building app+gateway image ($IMAGE)… (first build pulls the node base image)"
-  "$ENGINE" build -t "$IMAGE" -f "$ROOT/Containerfile" "$ROOT"
-fi
+# Always build. Layer caching makes an unchanged rebuild nearly instant (npm ci / npm run
+# build only re-run when their inputs change) and needs no network on a cache hit, so a
+# reboot is fast while a `git pull` is picked up automatically on the next run/restart.
+echo "==> Building app+gateway image ($IMAGE)… (cached layers reused; first build pulls the node base image)"
+"$ENGINE" build -t "$IMAGE" -f "$ROOT/Containerfile" "$ROOT"
 
 # --restart unless-stopped: the engine restarts a crashed container on its own.
 echo "==> Starting app…"
