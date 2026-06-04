@@ -1,0 +1,25 @@
+# Local/eval reverse proxy (used by deploy/run-local.sh).
+#
+# Serves the SAME routes over plain HTTP (:80) and HTTPS (:443, self-signed cert from
+# deploy/certs). "loopback = HTTP, everything else = HTTPS" is enforced by run-local.sh at
+# the PUBLISH layer (it binds :80 to 127.0.0.1 and :443 to all interfaces), so no Caddy
+# redirects are needed — hence auto_https disable_redirects. Separate :80/:443 blocks are
+# required because one block can't serve both schemes with a custom cert.
+#
+# Production uses deploy/Caddyfile instead (a real domain + automatic HTTPS).
+{
+	auto_https disable_redirects
+}
+
+:80 {
+	@gateway path /ws /ws/* /auth /auth/*
+	reverse_proxy @gateway webterm-gateway:8081
+	reverse_proxy webterm-app:3000
+}
+
+:443 {
+	tls /certs/webterm.crt /certs/webterm.key
+	@gateway path /ws /ws/* /auth /auth/*
+	reverse_proxy @gateway webterm-gateway:8081
+	reverse_proxy webterm-app:3000
+}

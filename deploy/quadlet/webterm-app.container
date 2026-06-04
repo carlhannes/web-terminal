@@ -1,0 +1,17 @@
+# The web app (Nitro server). Build the image first: `podman build -t webterm .`
+[Unit]
+Description=Web terminal app
+After=network-online.target
+
+[Container]
+ContainerName=webterm-app
+Image=localhost/webterm:latest
+Network=webterm.network
+Environment=PORT=3000
+# Default image CMD already runs: node .output/server/index.mjs
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

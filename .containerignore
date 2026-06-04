@@ -1,0 +1,18 @@
+# Keep the build context lean (Podman reads .containerignore; Docker reads .dockerignore).
+node_modules
+.output
+dist
+dist-ssr
+.nitro
+.git
+.github
+.claude
+.vscode
+.idea
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+# Self-signed TLS cert/key (host-mounted into the proxy; never belongs in an image)
+deploy/certs

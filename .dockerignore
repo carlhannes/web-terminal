@@ -1,0 +1,20 @@
+# Mirrors .containerignore — Docker only reads .dockerignore. Keeps the build context
+# lean and (critically) prevents COPY . . from overwriting the image's Linux node_modules
+# with the host's.
+node_modules
+.output
+dist
+dist-ssr
+.nitro
+.git
+.github
+.claude
+.vscode
+.idea
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+# Self-signed TLS cert/key (host-mounted into the proxy; never belongs in an image)
+deploy/certs

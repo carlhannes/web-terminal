@@ -1,0 +1,22 @@
+# Caddy reverse proxy: TLS + routes /ws,/auth -> gateway, everything else -> app.
+[Unit]
+Description=Web terminal reverse proxy (Caddy)
+After=network-online.target
+Requires=webterm-app.service webterm-gateway.service
+
+[Container]
+ContainerName=webterm-proxy
+Image=docker.io/library/caddy:2
+Network=webterm.network
+PublishPort=443:443
+PublishPort=80:80
+# Set to your domain for automatic HTTPS; omit/":80" for plain HTTP.
+Environment=SITE_ADDRESS=terminal.example.com
+Volume=%h/.config/webterm/Caddyfile:/etc/caddy/Caddyfile:ro,Z
+Volume=webterm-caddy-data:/data
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

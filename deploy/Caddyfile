@@ -1,0 +1,11 @@
+# Reverse proxy for the web terminal. Gateway endpoints (/ws, /auth) go to the
+# gateway container; everything else to the app. Caddy upgrades WebSockets
+# automatically — no extra config needed.
+#
+# SITE_ADDRESS: set to your domain (e.g. terminal.example.com) for automatic HTTPS;
+# defaults to :80 for local/HTTP-behind-another-terminator use.
+{$SITE_ADDRESS::80} {
+	@gateway path /ws /ws/* /auth /auth/*
+	reverse_proxy @gateway webterm-gateway:8081
+	reverse_proxy webterm-app:3000
+}

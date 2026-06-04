@@ -1,0 +1,8 @@
+# Shared Podman network so the containers resolve each other by name.
+# Install alongside the *.container units; `systemctl daemon-reload` generates
+# a systemd-managed network (referenced as `Network=webterm.network`).
+[Unit]
+Description=Web terminal container network
+
+[Network]
+NetworkName=webterm
