@@ -39,3 +39,13 @@ npm run gateway:dev  # terminal gateway (separate process)
 ```
 
 Checks: `npm run lint`, `npm run gateway:typecheck`, `npm run gateway:test`.
+
+## Terminal keys & clipboard
+
+- **Shift+Enter** inserts a newline (sends `LF`, like `Ctrl+J`) instead of submitting —
+  handy in multi-line prompts (e.g. Claude Code). Plain **Enter** still submits.
+- **Copy** works two ways: apps that use **OSC 52** (e.g. Claude Code, neovim) copy
+  straight to your browser clipboard; for a manual selection, hold **Shift** while
+  dragging (to bypass an app's mouse capture) then **Cmd+C** / **Ctrl+Shift+C**. Plain
+  **Ctrl+C** is left untouched so it still sends `SIGINT`.
+- Browser-clipboard writes need a **secure context** — i.e. HTTPS or `localhost`.

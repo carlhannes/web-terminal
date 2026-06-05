@@ -53,6 +53,7 @@ export class UserConnection {
   private execQueue: Promise<unknown> = Promise.resolve();
   private closed = false;
   private closeCbs = new Set<() => void>();
+  private clipboardConfigured = false;
 
   private constructor(
     private client: Client,
@@ -134,6 +135,13 @@ export class UserConnection {
     dims: Dims,
   ): Promise<ClientChannel> {
     await this.exec(tmux.ensureSession(base));
+    // Once per connection (server now exists): allow OSC 52 clipboard through tmux.
+    if (!this.clipboardConfigured) {
+      this.clipboardConfigured = true;
+      await this.exec(tmux.enableClipboard()).catch((err) =>
+        log.warn("enable clipboard failed", { user: this.username, err: String(err) }),
+      );
+    }
     const created = await this.exec(tmux.viewerCreate(base, viewer, windowIndex));
     if (created.code !== 0) {
       throw new Error(`viewer create failed: ${created.stderr.trim() || created.stdout.trim()}`);

@@ -95,6 +95,12 @@ test("command builders quote pre-validated tokens", () => {
   assert.match(tmux.viewerCreate("web-alice-1", "_v-abc", 2), /select-window -t '_v-abc:2'/);
 });
 
+test("enableClipboard turns on passthrough and clipboard forwarding", () => {
+  const cmd = tmux.enableClipboard();
+  assert.match(cmd, /set-option -g allow-passthrough on/);
+  assert.match(cmd, /set-option -g set-clipboard on/);
+});
+
 test("list formats use a printable separator that tmux preserves (not a tab)", () => {
   // Regression: tmux replaces control chars (incl. a tab) in -F output, so rows came back
   // unsplittable. A printable "|" round-trips.

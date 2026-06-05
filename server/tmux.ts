@@ -108,6 +108,16 @@ export const tmux = {
   viewerAttach: (viewer: string) => `tmux attach -t ${q(viewer)}`,
 
   killSessionQuiet: (session: string) => `tmux kill-session -t ${q(session)} 2>/dev/null || true`,
+
+  /**
+   * Let app clipboard (OSC 52) reach the attached client. `allow-passthrough on` unblocks
+   * the tmux DCS wrapper apps use under $TMUX (e.g. Claude Code, neovim); `set-clipboard on`
+   * makes tmux forward OSC 52 set-clipboard requests to the attached terminal (our pty ->
+   * WebSocket -> xterm, where the clipboard addon writes the browser clipboard). Global,
+   * idempotent; requires a running tmux server (run after ensureSession).
+   */
+  enableClipboard: () =>
+    `tmux set-option -g allow-passthrough on \\; set-option -g set-clipboard on`,
 };
 
 // --------------------------- parsers ---------------------------
