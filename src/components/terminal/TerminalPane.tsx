@@ -61,13 +61,17 @@ export function TerminalPane({ client, session, windowId, active, status, onFocu
     fitRef.current = fit;
 
     // xterm 6.0 has no kitty keyboard protocol, so we map keys by hand. Returning false
-    // tells xterm to NOT process the event (we either handled it ourselves or want it
-    // suppressed); returning true lets xterm handle it normally.
+    // tells xterm to NOT process the event; returning true lets xterm handle it normally.
+    // NOTE: on the keydown path xterm returns *before* its own preventDefault when the
+    // handler returns false, so we must preventDefault ourselves — otherwise the browser's
+    // default fires on xterm's hidden textarea and re-emits a stray byte (e.g. Shift+Enter
+    // would insert a textarea newline that gets sent as CR, submitting the line).
     term.attachCustomKeyEventHandler((e) => {
       if (e.type !== "keydown") return true;
       // Shift+Enter -> LF (0x0A), i.e. Ctrl+J. TUI apps like Claude Code treat this as
       // "insert newline"; plain Enter keeps sending CR (0x0D) which submits.
       if (e.key === "Enter" && e.shiftKey) {
+        e.preventDefault();
         client.sendInput(session, windowId, "\n");
         return false;
       }
@@ -75,6 +79,7 @@ export function TerminalPane({ client, session, windowId, active, status, onFocu
       // alone so it still sends SIGINT.
       const isCopy = e.key.toLowerCase() === "c" && (e.metaKey || (e.ctrlKey && e.shiftKey));
       if (isCopy && term.hasSelection()) {
+        e.preventDefault();
         void navigator.clipboard?.writeText(term.getSelection());
         return false;
       }
