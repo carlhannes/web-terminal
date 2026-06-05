@@ -132,6 +132,19 @@ function AppPage() {
     if (activeSession && !layouts[activeSession]) client.getLayout(activeSession);
   }, [activeSession, layouts, client]);
 
+  // On reconnect (e.g. gateway restart), re-apply the disk-authoritative layout. The
+  // in-memory split tree survives the reconnect but `onWindows` reconciles can flatten it
+  // against a transient windows snapshot; re-fetching restores the saved splits. (Initial
+  // connect — prev "connecting" — is handled by the load-once effect above, not here.)
+  const prevStatus = useRef(status);
+  useEffect(() => {
+    const prev = prevStatus.current;
+    prevStatus.current = status;
+    if (status === "open" && (prev === "reconnecting" || prev === "closed") && activeSession) {
+      client.getLayout(activeSession);
+    }
+  }, [status, activeSession, client]);
+
   // Persist layout changes for the active desktop (debounced; gateway also debounces disk).
   useEffect(() => {
     if (!activeSession) return;

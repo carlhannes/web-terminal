@@ -17,7 +17,9 @@ TanStack Start app (whose Vite/srvx stack can't reliably do WebSocket upgrades).
   session** (`tmux new-session -d -t <session> -s _v-…`, pinned to its window); the
   gateway kills that viewer when the pane closes. We deliberately do **not** use
   `destroy-unattached` (it would destroy the detached viewer before we can attach).
-  tmux control mode (`-CC`) is intentionally NOT used (kept simple).
+  tmux control mode (`-CC`) is intentionally NOT used (kept simple). The `exec tmux
+  attach …` line is written to the login shell **space-prefixed** so it stays out of the
+  user's shell history (relies on `HISTCONTROL=ignorespace`/`ignoreboth`).
 - **Clipboard (OSC 52):** once per connection the gateway runs `set-option -g
   allow-passthrough on` and `set-option -g set-clipboard on` (`tmux.enableClipboard`, in
   `openViewer` after the session exists). `allow-passthrough` lets the tmux-wrapped OSC 52

@@ -2,6 +2,8 @@ import { useEffect, useRef } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { ClipboardAddon } from "@xterm/addon-clipboard";
+import { WebLinksAddon } from "@xterm/addon-web-links";
+import { ImageAddon } from "@xterm/addon-image";
 import "@xterm/xterm/css/xterm.css";
 
 import type { TerminalGatewayClient, GatewayStatus } from "@/lib/terminal-gateway";
@@ -56,6 +58,10 @@ export function TerminalPane({ client, session, windowId, active, status, onFocu
     // their text written to the browser clipboard. Default provider uses
     // navigator.clipboard (requires a secure context — i.e. HTTPS or localhost).
     term.loadAddon(new ClipboardAddon());
+    // Make URLs clickable (opens in a new tab).
+    term.loadAddon(new WebLinksAddon());
+    // Render sixel / iTerm inline images (relies on allowProposedApi, set above).
+    term.loadAddon(new ImageAddon());
     term.open(host);
     termRef.current = term;
     fitRef.current = fit;
