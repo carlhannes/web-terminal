@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { ClipboardAddon } from "@xterm/addon-clipboard";
 import "@xterm/xterm/css/xterm.css";
 
 import type { TerminalGatewayClient, GatewayStatus } from "@/lib/terminal-gateway";
@@ -51,9 +52,34 @@ export function TerminalPane({ client, session, windowId, active, status, onFocu
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
+    // Handles OSC 52: apps (e.g. Claude Code) that emit `\x1b]52;c;<base64>\x07` get
+    // their text written to the browser clipboard. Default provider uses
+    // navigator.clipboard (requires a secure context — i.e. HTTPS or localhost).
+    term.loadAddon(new ClipboardAddon());
     term.open(host);
     termRef.current = term;
     fitRef.current = fit;
+
+    // xterm 6.0 has no kitty keyboard protocol, so we map keys by hand. Returning false
+    // tells xterm to NOT process the event (we either handled it ourselves or want it
+    // suppressed); returning true lets xterm handle it normally.
+    term.attachCustomKeyEventHandler((e) => {
+      if (e.type !== "keydown") return true;
+      // Shift+Enter -> LF (0x0A), i.e. Ctrl+J. TUI apps like Claude Code treat this as
+      // "insert newline"; plain Enter keeps sending CR (0x0D) which submits.
+      if (e.key === "Enter" && e.shiftKey) {
+        client.sendInput(session, windowId, "\n");
+        return false;
+      }
+      // Copy the current selection on Cmd+C (macOS) or Ctrl+Shift+C. Plain Ctrl+C is left
+      // alone so it still sends SIGINT.
+      const isCopy = e.key.toLowerCase() === "c" && (e.metaKey || (e.ctrlKey && e.shiftKey));
+      if (isCopy && term.hasSelection()) {
+        void navigator.clipboard?.writeText(term.getSelection());
+        return false;
+      }
+      return true;
+    });
     try {
       fit.fit();
     } catch {

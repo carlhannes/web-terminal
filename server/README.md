@@ -18,6 +18,13 @@ TanStack Start app (whose Vite/srvx stack can't reliably do WebSocket upgrades).
   gateway kills that viewer when the pane closes. We deliberately do **not** use
   `destroy-unattached` (it would destroy the detached viewer before we can attach).
   tmux control mode (`-CC`) is intentionally NOT used (kept simple).
+- **Clipboard (OSC 52):** once per connection the gateway runs `set-option -g
+  allow-passthrough on` and `set-option -g set-clipboard on` (`tmux.enableClipboard`, in
+  `openViewer` after the session exists). `allow-passthrough` lets the tmux-wrapped OSC 52
+  that apps emit under `$TMUX` (Claude Code, neovim) reach the attached client; tmux then
+  forwards it down our pty → WebSocket → xterm, where the `@xterm/addon-clipboard` handler
+  writes the browser clipboard. The transport carries it verbatim (raw binary output
+  frames), so nothing else is needed gateway-side.
 
 ## Run
 
