@@ -5,6 +5,12 @@ import { ClipboardAddon } from "@xterm/addon-clipboard";
 import "@xterm/xterm/css/xterm.css";
 
 import type { TerminalGatewayClient, GatewayStatus } from "@/lib/terminal-gateway";
+import {
+  isTmuxPrefix,
+  TMUX_PREFIX,
+  tmuxShortcutFromKey,
+  type TmuxShortcut,
+} from "@/lib/tmux-keymap";
 
 interface Props {
   client: TerminalGatewayClient;
@@ -16,6 +22,7 @@ interface Props {
   active: boolean;
   status: GatewayStatus;
   onFocus?: () => void;
+  onTmuxShortcut?: (shortcut: TmuxShortcut) => void;
 }
 
 const STATUS_LABEL: Record<GatewayStatus, string | null> = {
@@ -28,14 +35,35 @@ const STATUS_LABEL: Record<GatewayStatus, string | null> = {
 
 // One xterm bound to one tmux window, streamed over the gateway WebSocket. tmux
 // holds the real state, so on reconnect the gateway re-attaches and redraws.
-export function TerminalPane({ client, session, windowId, active, status, onFocus }: Props) {
+export function TerminalPane({
+  client,
+  session,
+  windowId,
+  active,
+  status,
+  onFocus,
+  onTmuxShortcut,
+}: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
+  const tmuxPrefixPending = useRef(false);
+  const tmuxPrefixTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tmuxShortcutRef = useRef(onTmuxShortcut);
+
+  useEffect(() => {
+    tmuxShortcutRef.current = onTmuxShortcut;
+  }, [onTmuxShortcut]);
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
+
+    const clearTmuxPrefix = () => {
+      if (tmuxPrefixTimer.current) clearTimeout(tmuxPrefixTimer.current);
+      tmuxPrefixTimer.current = null;
+      tmuxPrefixPending.current = false;
+    };
 
     const term = new Terminal({
       cursorBlink: true,
@@ -68,6 +96,26 @@ export function TerminalPane({ client, session, windowId, active, status, onFocu
     // would insert a textarea newline that gets sent as CR, submitting the line).
     term.attachCustomKeyEventHandler((e) => {
       if (e.type !== "keydown") return true;
+      if (tmuxPrefixPending.current) {
+        const shortcut = tmuxShortcutFromKey(e);
+        e.preventDefault();
+        clearTmuxPrefix();
+        if (shortcut.type === "pass-through") {
+          client.sendInput(session, windowId, shortcut.data);
+        } else {
+          tmuxShortcutRef.current?.(shortcut);
+        }
+        return false;
+      }
+      if (isTmuxPrefix(e)) {
+        e.preventDefault();
+        tmuxPrefixPending.current = true;
+        tmuxPrefixTimer.current = setTimeout(() => {
+          client.sendInput(session, windowId, TMUX_PREFIX);
+          clearTmuxPrefix();
+        }, 700);
+        return false;
+      }
       // Shift+Enter -> LF (0x0A), i.e. Ctrl+J. TUI apps like Claude Code treat this as
       // "insert newline"; plain Enter keeps sending CR (0x0D) which submits.
       if (e.key === "Enter" && e.shiftKey) {
@@ -113,6 +161,7 @@ export function TerminalPane({ client, session, windowId, active, status, onFocu
 
     return () => {
       if (resizeTimer) clearTimeout(resizeTimer);
+      clearTmuxPrefix();
       offOutput();
       dataSub.dispose();
       resizeSub.dispose();

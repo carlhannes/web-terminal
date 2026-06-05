@@ -1,6 +1,5 @@
 <img width="1024" height="547" alt="image" src="https://github.com/user-attachments/assets/95d8e825-4f98-4762-bfa7-225c0d5082c3" />
 
-
 # Web Terminal
 
 A browser-based, **persistent** SSH terminal. You log in as an ordinary SSH user; your
@@ -42,6 +41,10 @@ Checks: `npm run lint`, `npm run gateway:typecheck`, `npm run gateway:test`.
 
 ## Terminal keys & clipboard
 
+- **Tmux-like prefix shortcuts** are handled by the web UI so tabs/splits stay in sync with
+  tmux windows: **Ctrl+B** then **0–9** selects a tmux window by index, **n/p** moves
+  next/previous, **c** creates a window, **%** / **"** split right/down, and **x** closes the
+  pane. Unsupported prefix commands are passed through to tmux.
 - **Shift+Enter** inserts a newline (sends `LF`, like `Ctrl+J`) instead of submitting —
   handy in multi-line prompts (e.g. Claude Code). Plain **Enter** still submits.
 - **Copy** works two ways: apps that use **OSC 52** (e.g. Claude Code, neovim) copy

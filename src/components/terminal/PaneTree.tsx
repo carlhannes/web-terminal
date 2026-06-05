@@ -4,6 +4,7 @@ import { SplitSquareHorizontal, SplitSquareVertical, X } from "lucide-react";
 import type { LayoutNode, LayoutPath } from "./types";
 import { TerminalPane } from "./TerminalPane";
 import type { TerminalGatewayClient, GatewayStatus } from "@/lib/terminal-gateway";
+import type { TmuxShortcut } from "@/lib/tmux-keymap";
 
 interface Props {
   node: LayoutNode;
@@ -18,6 +19,7 @@ interface Props {
   onSplit: (windowId: string, direction: "horizontal" | "vertical") => void;
   onClose: (windowId: string) => void;
   onResize: (path: LayoutPath, sizes: [number, number]) => void;
+  onTmuxShortcut: (windowId: string, shortcut: TmuxShortcut) => void;
 }
 
 // Renders the best-effort web split layout. Leaves are tmux windows; splits are a
@@ -50,6 +52,7 @@ export function PaneTree(props: Props) {
           active={active}
           status={props.status}
           onFocus={() => props.onFocus(node.windowId)}
+          onTmuxShortcut={(shortcut) => props.onTmuxShortcut(node.windowId, shortcut)}
         />
       </div>
     );

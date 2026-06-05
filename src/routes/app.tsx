@@ -24,6 +24,7 @@ const nextReqId = () => `r-${Date.now().toString(36)}-${(_reqSeq++).toString(36)
 import {
   type DesktopLayout,
   type LayoutPath,
+  type WindowInfo,
   leafWindowIds,
   splitLeaf,
   setSizesAtPath,
@@ -37,6 +38,7 @@ import { useTerminalGateway } from "@/hooks/useTerminalGateway";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useViewportHeight } from "@/hooks/useViewportHeight";
 import { gatewayHttpBase } from "@/lib/terminal-gateway";
+import type { TmuxShortcut } from "@/lib/tmux-keymap";
 
 export const Route = createFileRoute("/app")({
   head: () => ({ meta: [{ title: "Web Terminal" }] }),
@@ -58,6 +60,7 @@ function AppPage() {
   const viewportHeight = useViewportHeight();
 
   const [layouts, setLayouts] = useState<Record<string, DesktopLayout>>({});
+  const [windowsBySession, setWindowsBySession] = useState<Record<string, WindowInfo[]>>({});
   const [activeSession, setActiveSession] = useState<string | null>(null);
   const [activeTabBySession, setActiveTabBySession] = useState<Record<string, string>>({});
   const [focusedWindowId, setFocusedWindowId] = useState<string | null>(null);
@@ -73,6 +76,7 @@ function AppPage() {
       setLayouts((p) => ({ ...p, [session]: layout }));
     });
     const offWindows = client.onWindows((session, windows) => {
+      setWindowsBySession((p) => ({ ...p, [session]: windows }));
       setLayouts((p) => {
         const cur = p[session];
         return { ...p, [session]: reconcileLayout(cur, windows, cur?.order ?? 0) };
@@ -186,6 +190,61 @@ function AppPage() {
   }
   function selectTab(tabId: string) {
     if (activeSession) setActiveTabBySession((p) => ({ ...p, [activeSession]: tabId }));
+  }
+  function focusWindow(session: string, windowId: string) {
+    setFocusedWindowId(windowId);
+    setActiveTabBySession((p) => {
+      const layout = layouts[session];
+      const tab = layout?.tabs.find((t) => leafWindowIds(t.tree).includes(windowId));
+      return tab ? { ...p, [session]: tab.id } : { ...p, [session]: `tab-${windowId}` };
+    });
+    setLayouts((p) => {
+      const cur = p[session];
+      if (!cur) return p;
+      const tabs2 = cur.tabs.map((t) =>
+        leafWindowIds(t.tree).includes(windowId) ? { ...t, activeWindowId: windowId } : t,
+      );
+      return { ...p, [session]: { ...cur, tabs: tabs2 } };
+    });
+  }
+  function adjacentWindow(session: string, currentWindowId: string, delta: 1 | -1): string | null {
+    const wins = [...(windowsBySession[session] ?? [])].sort((a, b) => a.index - b.index);
+    if (wins.length === 0) return null;
+    const i = Math.max(
+      0,
+      wins.findIndex((w) => w.id === currentWindowId),
+    );
+    return wins[(i + delta + wins.length) % wins.length]?.id ?? null;
+  }
+  function handleTmuxShortcut(sourceWindowId: string, shortcut: TmuxShortcut) {
+    if (!activeSession) return;
+    switch (shortcut.type) {
+      case "select-window": {
+        const win = windowsBySession[activeSession]?.find((w) => w.index === shortcut.index);
+        if (win) focusWindow(activeSession, win.id);
+        return;
+      }
+      case "next-window": {
+        const id = adjacentWindow(activeSession, sourceWindowId, 1);
+        if (id) focusWindow(activeSession, id);
+        return;
+      }
+      case "previous-window": {
+        const id = adjacentWindow(activeSession, sourceWindowId, -1);
+        if (id) focusWindow(activeSession, id);
+        return;
+      }
+      case "new-window":
+        return addTab();
+      case "split-horizontal":
+        return splitPane(sourceWindowId, "horizontal");
+      case "split-vertical":
+        return splitPane(sourceWindowId, "vertical");
+      case "close-pane":
+        return closePane(sourceWindowId);
+      case "pass-through":
+        return;
+    }
   }
   function addTab() {
     if (!activeSession) return;
@@ -307,6 +366,7 @@ function AppPage() {
                 active
                 status={status}
                 onFocus={() => setFocusedWindowId(activeLeaf)}
+                onTmuxShortcut={(shortcut) => handleTmuxShortcut(activeLeaf, shortcut)}
               />
             ) : (
               <PaneTree
@@ -319,6 +379,7 @@ function AppPage() {
                 onSplit={splitPane}
                 onClose={closePane}
                 onResize={resizeSplit}
+                onTmuxShortcut={handleTmuxShortcut}
               />
             )
           ) : (
