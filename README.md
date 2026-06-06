@@ -34,15 +34,17 @@ cert (generated on first start; browsers warn once). Other machines use
 ## Development
 
 ```sh
-npm run dev          # web app (Vite); proxies /ws and /auth to the gateway
+npm run dev          # web app (Vite)
 npm run gateway:dev  # terminal gateway (separate process; needs a real SSH host + tmux)
 ```
 
-For UI-only work without an SSH host, run the **real gateway with `MOCK_SSH=1`** instead of
-`gateway:dev` — only the ssh2/host connection is faked:
+For full-stack/same-origin dev (mirrors prod), use `deploy/run-local.sh` (Caddy). For
+**UI-only work without an SSH host**, run the real gateway with `MOCK_SSH=1` (only the
+ssh2/host connection is faked) plus the matching frontend:
 
 ```sh
 npm run gateway:mock # = MOCK_SSH=1 …terminal-gateway.ts (dev-only); log in with any creds
+npm run dev:mock     # frontend pointed at the mock gateway on :8081 (no env vars to type)
 ```
 
 Everything but the remote host is real (auth, protocol, tmux parsing, layout persistence),

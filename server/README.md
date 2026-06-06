@@ -49,8 +49,8 @@ For UI work without an SSH host, run the **real gateway** with `MOCK_SSH=1` — 
 ssh2/host connection is faked, everything else is the real gateway:
 
 ```sh
-npm run dev          # frontend
 npm run gateway:mock # = MOCK_SSH=1 tsx watch server/terminal-gateway.ts — log in with ANY creds
+npm run dev:mock     # frontend pointed at the gateway on :8081 (sets the VITE_* URLs for you)
 ```
 
 The seam is the `HostConnection` interface (`ssh-connection.ts`): the real `UserConnection`
@@ -63,10 +63,11 @@ Because the rest is real, this exercises the actual auth/WS, protocol dispatch, 
 command building + parsing, `reconcileLayout`, **the disk-backed `LayoutStore`** (so
 splits/zoom persist for real), the registry timers, and window polling.
 
-Dev note: `npm run dev`'s proxy doesn't forward `/auth`/`/ws`, so point the browser straight
-at the gateway with `VITE_TERMINAL_GATEWAY_HTTP_URL=http://localhost:8081` and
-`VITE_TERMINAL_GATEWAY_WS_URL=ws://localhost:8081/ws`; `MOCK_SSH` mode adds the matching dev
-CORS on `/auth` so that cross-origin call works.
+Dev note: `npm run dev`'s Vite `server.proxy` is inert (the Nitro dev server owns the
+pipeline), so the browser talks to the gateway cross-origin on `:8081`. `dev:mock` just sets
+the `VITE_TERMINAL_GATEWAY_HTTP_URL`/`_WS_URL` overrides for you, and `MOCK_SSH` mode adds
+the matching dev-only CORS on `/auth` so that cross-origin call works (WebSockets aren't
+CORS-gated). For true same-origin / dev↔prod parity, use `deploy/run-local.sh` (Caddy).
 
 ## Checks
 
