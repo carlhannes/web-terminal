@@ -130,3 +130,23 @@ test("reconcileLayout: empty windows snapshot keeps the saved split tree intact"
   // A transient/stale empty list (e.g. right after a gateway restart) must NOT flatten.
   assert.deepEqual(reconcileLayout(saved, []), saved);
 });
+
+test("reconcileLayout: carries per-window zoom and prunes orphaned windows", () => {
+  const saved: DesktopLayout = {
+    order: 0,
+    tabs: [{ id: "t", title: "a", activeWindowId: "@0", tree: { kind: "leaf", windowId: "@0" } }],
+    windowZooms: { "@0": 1.5, "@9": 0.5 }, // @9 no longer exists
+  };
+  const out = reconcileLayout(saved, [win("@0", 0)]);
+  assert.deepEqual(out.windowZooms, { "@0": 1.5 }); // @0 kept, @9 pruned
+});
+
+test("reconcileLayout: omits windowZooms when none survive", () => {
+  const saved: DesktopLayout = {
+    order: 0,
+    tabs: [{ id: "t", title: "a", activeWindowId: "@0", tree: { kind: "leaf", windowId: "@0" } }],
+    windowZooms: { "@9": 0.7 },
+  };
+  const out = reconcileLayout(saved, [win("@0", 0)]);
+  assert.equal(out.windowZooms, undefined);
+});

@@ -1,11 +1,11 @@
 import crypto from "node:crypto";
 
 import type { GatewayConfig } from "./config";
-import type { UserConnection } from "./ssh-connection";
+import type { HostConnection } from "./ssh-connection";
 import { log } from "./log";
 
 interface Entry {
-  conn: UserConnection;
+  conn: HostConnection;
   user: string;
   createdAt: number;
   idleTimer: ReturnType<typeof setTimeout>;
@@ -21,7 +21,7 @@ export class Registry {
 
   constructor(private cfg: GatewayConfig) {}
 
-  add(conn: UserConnection): string {
+  add(conn: HostConnection): string {
     const sid = crypto.randomBytes(32).toString("hex");
     const entry: Entry = {
       conn,
@@ -38,7 +38,7 @@ export class Registry {
     return sid;
   }
 
-  get(sid: string): UserConnection | undefined {
+  get(sid: string): HostConnection | undefined {
     const entry = this.bySid.get(sid);
     if (!entry) return undefined;
     this.touch(sid);

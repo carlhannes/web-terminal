@@ -8,7 +8,7 @@ import type { ClientChannel, ConnectConfig } from "ssh2";
 import { getGatewayConfig, type GatewayConfig } from "./config";
 import { Registry, RateLimiter } from "./registry";
 import { LayoutStore } from "./layout-store";
-import { UserConnection, classifyConnectError } from "./ssh-connection";
+import { UserConnection, classifyConnectError, type HostConnection } from "./ssh-connection";
 import {
   ClientMsgSchema,
   type ClientMsg,
@@ -58,6 +58,21 @@ function clearCookieString(cfg: GatewayConfig): string {
 function originAllowed(origin: string | undefined, cfg: GatewayConfig): boolean {
   if (cfg.allowedOrigins.length === 0) return !cfg.isProduction; // dev: allow; prod: must configure
   return origin != null && cfg.allowedOrigins.includes(origin);
+}
+
+// DEV/MOCK ONLY: when the fake host is active, allow the dev frontend (served on another
+// port, e.g. :3000) to hit /auth cross-origin with credentials — the Vite dev proxy does
+// not forward /auth. Gated by cfg.mockSsh (false in production), so the real auth path is
+// untouched. Reflects the allowed Origin (required with credentials; `*` is rejected).
+function applyMockCors(req: http.IncomingMessage, res: http.ServerResponse, cfg: GatewayConfig) {
+  if (!cfg.mockSsh) return;
+  const origin = req.headers.origin;
+  if (origin && originAllowed(origin, cfg)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "content-type");
+  }
 }
 
 function sendJson(res: http.ServerResponse, status: number, body: unknown) {
@@ -153,7 +168,7 @@ class GatewayConnection {
 
   constructor(
     private ws: WebSocket,
-    private conn: UserConnection,
+    private conn: HostConnection,
     private cfg: GatewayConfig,
     private layout: LayoutStore,
     private touch: () => void,
@@ -467,6 +482,12 @@ function main() {
 
   const server = http.createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
+    // Dev/mock CORS preflight for cross-origin /auth (no-op unless cfg.mockSsh).
+    if (cfg.mockSsh && req.method === "OPTIONS" && url.pathname.startsWith("/auth")) {
+      applyMockCors(req, res, cfg);
+      res.writeHead(204);
+      return void res.end();
+    }
     if (req.method === "POST" && url.pathname === "/auth") return void handleAuth(req, res);
     if (req.method === "POST" && url.pathname === "/auth/logout")
       return void handleLogout(req, res);
@@ -476,6 +497,7 @@ function main() {
   });
 
   async function handleAuth(req: http.IncomingMessage, res: http.ServerResponse) {
+    applyMockCors(req, res, cfg); // dev/mock only; no-op otherwise
     if (!originAllowed(req.headers.origin, cfg))
       return sendJson(res, 403, { error: "forbidden origin" });
     let username = "";
@@ -494,7 +516,10 @@ function main() {
       return sendJson(res, 429, { error: "too many attempts" });
 
     try {
-      const conn = await UserConnection.connect(username, password, cfg, hostVerifier);
+      // Dev: fake the host (no ssh2/tmux). Dynamically imported so it never loads in prod.
+      const conn: HostConnection = cfg.mockSsh
+        ? await (await import("./fake-host-connection")).FakeHostConnection.connect(username)
+        : await UserConnection.connect(username, password, cfg, hostVerifier);
       const sid = registry.add(conn);
       res.setHeader("Set-Cookie", cookieString(sid, cfg));
       log.info("auth ok", { user: username });
@@ -539,6 +564,9 @@ function main() {
       socket.destroy();
     }
   });
+
+  if (cfg.mockSsh)
+    log.warn("MOCK_SSH active — faking the ssh2/host connection (dev UI testing only)", {});
 
   server.listen(cfg.gatewayPort, cfg.gatewayBind, () => {
     log.info("terminal gateway listening", {

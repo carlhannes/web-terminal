@@ -34,18 +34,22 @@ cert (generated on first start; browsers warn once). Other machines use
 ## Development
 
 ```sh
-npm run dev          # web app (Vite); proxies /ws and /auth to the gateway
+npm run dev          # web app (Vite)
 npm run gateway:dev  # terminal gateway (separate process; needs a real SSH host + tmux)
 ```
 
-For UI-only work without an SSH host, run the **mock gateway** instead of `gateway:dev`:
+For full-stack/same-origin dev (mirrors prod), use `deploy/run-local.sh` (Caddy). For
+**UI-only work without an SSH host**, run the real gateway with `MOCK_SSH=1` (only the
+ssh2/host connection is faked) plus the matching frontend:
 
 ```sh
-npm run gateway:mock # opt-in, dev-only fake shell (no ssh2/tmux); log in with any creds
+npm run gateway:mock # = MOCK_SSH=1 …terminal-gateway.ts (dev-only); log in with any creds
+npm run dev:mock     # frontend pointed at the mock gateway on :8081 (no env vars to type)
 ```
 
-It speaks the real WebSocket protocol so xterm/tabs/splits/mobile all render, but every
-command just returns `command not found`. See [`server/README.md`](server/README.md).
+Everything but the remote host is real (auth, protocol, tmux parsing, layout persistence),
+so each pane is a fake shell that returns `command not found`. See
+[`server/README.md`](server/README.md).
 
 Checks: `npm run lint`, `npm run gateway:typecheck`, `npm run gateway:test`.
 
@@ -60,3 +64,6 @@ Checks: `npm run lint`, `npm run gateway:typecheck`, `npm run gateway:test`.
 - Browser-clipboard writes need a **secure context** — i.e. HTTPS or `localhost`.
 - **URLs are clickable** (web-links addon), and **inline images** (sixel / iTerm) render
   in-terminal (image addon).
+- **Per-pane zoom**: a dropdown in each pane's controls scales it 50–150% (via xterm's
+  font size, so text stays crisp and the grid reflows); the choice persists per window.
+  (A CSS-scale alternative is documented in [`docs/zoom-css-scale-fallback.md`](docs/zoom-css-scale-fallback.md).)
