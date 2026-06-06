@@ -112,8 +112,22 @@ HTTPS_PORT=8443
 
 > **A reboot signs everyone out** — the gateway holds each live SSH connection in memory and
 > never stores your password, so the pre-reboot session can't be resumed. Just log in again;
-> your tmux desktops are intact. If a *fresh* login then fails, see
+> your tmux desktops are intact, and your **web layout (splits, zoom, tab grouping) persists
+> too** (see below). If a *fresh* login then fails, see
 > [Troubleshooting](#troubleshooting-login-fails-after-a-reboot) below.
+
+**Layout persistence.** The gateway stores each user's pane layout as a JSON sidecar
+(`LAYOUT_DIR`, default `~/.web-terminal/layouts`). A restart recreates the container and
+rebuilds the image, so `run-local.sh` mounts a **named volume `webterm-layouts`** at
+`/var/lib/web-terminal/layouts` (with `LAYOUT_DIR` pointed there) — splits/zoom/tabs survive
+`restart`, `down`/`up`, and image rebuilds. `down` keeps the volume on purpose (tmux itself
+is the source of truth for *which* windows exist; this only remembers their web arrangement).
+
+```sh
+podman volume export webterm-layouts > layouts.tar   # back up
+podman volume import webterm-layouts layouts.tar      # restore
+podman volume rm     webterm-layouts                  # purge (resets everyone's layout)
+```
 
 ### Production with a real domain (trusted cert)
 
