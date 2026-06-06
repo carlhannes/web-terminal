@@ -102,6 +102,10 @@ export const tmux = {
    */
   viewerCreate: (base: string, viewer: string, windowIndex: number) =>
     `tmux new-session -d -t ${q(base)} -s ${q(viewer)} \\; ` +
+    // `mouse on` (per-viewer, NOT global) so the web client's wheel scrolls tmux scrollback
+    // instead of the alt-screen sending cursor-up to the shell. Isolated to this throwaway
+    // viewer session, so the user's own CLI `tmux attach` to the base session is unaffected.
+    `set-option -t ${q(viewer)} mouse on \\; ` +
     `select-window -t ${q(`${viewer}:${windowIndex}`)}`,
 
   /** Attach to the viewer interactively — run via an ssh pty channel; this is the stream. */
