@@ -27,6 +27,11 @@ fi
 
 NETWORK="${NETWORK:-webterm}"
 IMAGE="${IMAGE:-webterm}"
+# Persists per-user pane layout (splits/zoom/tabs) across container recreate + image rebuild.
+# A named volume survives `down` (which removes only containers+network), unlike the
+# container's ephemeral layer where the gateway would otherwise write ~/.web-terminal/layouts.
+LAYOUT_VOL="${LAYOUT_VOL:-webterm-layouts}"
+LAYOUT_DIR_IN_CONTAINER=/var/lib/web-terminal/layouts
 HTTP_PORT="${HTTP_PORT:-8080}"     # loopback-only plain HTTP
 HTTPS_PORT="${HTTPS_PORT:-8443}"   # HTTPS (self-signed) on all interfaces
 # Host the gateway connects to over SSH. host.containers.internal = this machine.
@@ -45,6 +50,8 @@ if [ "${1:-up}" = "down" ]; then
   remove_containers
   "$ENGINE" network rm "$NETWORK" >/dev/null 2>&1 || true
   echo "Done. (Self-signed cert kept in deploy/certs — delete it to regenerate.)"
+  echo "      (Layout volume '$LAYOUT_VOL' kept so a restart preserves splits/zoom —"
+  echo "       purge with: $ENGINE volume rm $LAYOUT_VOL)"
   exit 0
 fi
 
@@ -76,6 +83,9 @@ remove_containers
 echo "==> Network: $NETWORK"
 "$ENGINE" network inspect "$NETWORK" >/dev/null 2>&1 || "$ENGINE" network create "$NETWORK"
 
+echo "==> Layout volume: $LAYOUT_VOL (persists pane layout across restart/rebuild)"
+"$ENGINE" volume inspect "$LAYOUT_VOL" >/dev/null 2>&1 || "$ENGINE" volume create "$LAYOUT_VOL" >/dev/null
+
 # Always build. Layer caching makes an unchanged rebuild nearly instant (npm ci / npm run
 # build only re-run when their inputs change) and needs no network on a cache hit, so a
 # reboot is fast while a `git pull` is picked up automatically on the next run/restart.
@@ -92,6 +102,8 @@ echo "==> Starting gateway (SSH -> $SSH_HOST:$SSH_PORT)…"
 "$ENGINE" run -d --name webterm-gateway --network "$NETWORK" --restart unless-stopped \
   --add-host=host.containers.internal:host-gateway \
   -e GATEWAY_BIND=0.0.0.0 -e SSH_HOST="$SSH_HOST" -e SSH_PORT="$SSH_PORT" \
+  -e LAYOUT_DIR="$LAYOUT_DIR_IN_CONTAINER" \
+  -v "$LAYOUT_VOL:$LAYOUT_DIR_IN_CONTAINER" \
   "$IMAGE" npm run gateway:start >/dev/null
 
 echo "==> Starting reverse proxy (HTTP 127.0.0.1:${HTTP_PORT}, HTTPS :${HTTPS_PORT})…"
@@ -120,7 +132,8 @@ Verify:
   1. A live shell on the host appears and commands run (whoami = your user).
   2. Same tmux session from the host itself:
        tmux attach -t web-<your-username>-1
-  3. Split a pane, resize it, reload the page -> layout persists.
+  3. Split a pane, resize it, reload the page -> layout persists. It also survives a
+     restart/rebuild now (layouts live in the '$LAYOUT_VOL' volume, not the container).
 
 If login fails, the usual causes are: host sshd has PasswordAuthentication off,
 tmux not installed on the host, or a host firewall blocking the container subnet.
