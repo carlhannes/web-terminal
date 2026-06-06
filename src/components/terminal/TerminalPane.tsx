@@ -145,8 +145,8 @@ export function TerminalPane({ client, session, windowId, active, status, onFocu
 
   const label = STATUS_LABEL[status];
   return (
-    <div className="relative h-full w-full" onMouseDown={onFocus}>
-      <div ref={hostRef} className="h-full w-full bg-[#0a0a0a] p-1" />
+    <div className="relative h-full min-h-0 w-full min-w-0" onMouseDown={onFocus}>
+      <div ref={hostRef} className="h-full min-h-0 w-full min-w-0 bg-[#0a0a0a] p-1" />
       {label && (
         <div className="pointer-events-none absolute left-1/2 top-2 -translate-x-1/2 rounded bg-black/70 px-2 py-0.5 text-[11px] text-amber-300">
           {label}

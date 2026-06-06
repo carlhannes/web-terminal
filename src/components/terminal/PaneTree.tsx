@@ -30,7 +30,7 @@ export function PaneTree(props: Props) {
     const active = node.windowId === props.activeWindowId;
     return (
       <div
-        className={`group relative h-full w-full border ${active ? "border-primary/60" : "border-transparent"}`}
+        className={`group relative h-full min-h-0 w-full min-w-0 border ${active ? "border-primary/60" : "border-transparent"}`}
       >
         <div className="pointer-events-none absolute right-1 top-1 z-10 flex gap-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
           <IconBtn title="Split right" onClick={() => props.onSplit(node.windowId, "horizontal")}>
