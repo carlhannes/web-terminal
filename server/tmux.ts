@@ -114,14 +114,23 @@ export const tmux = {
   killSessionQuiet: (session: string) => `tmux kill-session -t ${q(session)} 2>/dev/null || true`,
 
   /**
-   * Let app clipboard (OSC 52) reach the attached client. `allow-passthrough on` unblocks
-   * the tmux DCS wrapper apps use under $TMUX (e.g. Claude Code, neovim); `set-clipboard on`
-   * makes tmux forward OSC 52 set-clipboard requests to the attached terminal (our pty ->
-   * WebSocket -> xterm, where the clipboard addon writes the browser clipboard). Global,
-   * idempotent; requires a running tmux server (run after ensureSession).
+   * One-time, per-connection global tmux server config (idempotent; needs a running server,
+   * so run after ensureSession). Two concerns, one round-trip:
+   *
+   * 1. Clipboard (OSC 52): `allow-passthrough on` unblocks the tmux DCS wrapper apps use
+   *    under $TMUX (e.g. Claude Code, neovim); `set-clipboard on` forwards their OSC 52 to
+   *    the attached terminal (our pty -> WebSocket -> xterm, where the clipboard addon writes
+   *    the browser clipboard).
+   * 2. Mouse trims: the viewer runs with `mouse on` (so the wheel scrolls scrollback), but we
+   *    do NOT want tmux's plain-drag-to-copy (it auto-copies) or its right-click menu. Native
+   *    selection is done instead via modifier+drag in xterm (Option on macOS / Shift else) ->
+   *    Cmd/Ctrl+C. These unbinds are server-global but only *observable* where mouse is on —
+   *    i.e. our viewer; a user's own CLI sessions are mouse-off so the bindings never fire.
+   *    The wheel bindings (WheelUp/DownPane) are left intact.
    */
-  enableClipboard: () =>
-    `tmux set-option -g allow-passthrough on \\; set-option -g set-clipboard on`,
+  configureServer: () =>
+    `tmux set-option -g allow-passthrough on \\; set-option -g set-clipboard on` +
+    ` \\; unbind-key -n MouseDrag1Pane \\; unbind-key -n MouseDown3Pane`,
 };
 
 // --------------------------- parsers ---------------------------

@@ -121,7 +121,7 @@ export class FakeHostConnection implements HostConnection {
   }
 
   // Emulate the tmux control commands the gateway issues via conn.exec. (ensureSession /
-  // viewerCreate / enableClipboard live inside the REAL openViewer, which we replace, so
+  // viewerCreate / configureServer live inside the REAL openViewer, which we replace, so
   // they never reach here.) Order: match each distinct verb substring.
   private run(cmd: string): ExecResult {
     if (cmd.includes("list-sessions")) {
