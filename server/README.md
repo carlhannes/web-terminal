@@ -21,19 +21,23 @@ TanStack Start app (whose Vite/srvx stack can't reliably do WebSocket upgrades).
   attach …` line is written to the login shell **space-prefixed** so it stays out of the
   user's shell history (relies on `HISTCONTROL=ignorespace`/`ignoreboth`).
 - **Clipboard (OSC 52):** once per connection the gateway runs `set-option -g
-  allow-passthrough on` and `set-option -g set-clipboard on` (`tmux.enableClipboard`, in
-  `openViewer` after the session exists). `allow-passthrough` lets the tmux-wrapped OSC 52
-  that apps emit under `$TMUX` (Claude Code, neovim) reach the attached client; tmux then
-  forwards it down our pty → WebSocket → xterm, where the `@xterm/addon-clipboard` handler
-  writes the browser clipboard. The transport carries it verbatim (raw binary output
-  frames), so nothing else is needed gateway-side.
-- **Mouse / scrollback:** the viewer is created with `set-option -t <viewer> mouse on`
-  (per-session, NOT `-g`). tmux runs on the alternate screen, so without this the wheel
-  becomes cursor-up/down (cycling shell history) instead of scrolling; with it, the wheel
-  scrolls tmux's scrollback. Scoped to the throwaway viewer, so a user's own CLI
-  `tmux attach` to the base session keeps their setting. Copy still works: a plain drag
-  enters tmux copy-mode → OSC 52 → browser clipboard; hold **Shift** while dragging to use
-  xterm's native selection + Cmd/Ctrl+C instead.
+  allow-passthrough on` and `set-option -g set-clipboard on` (part of
+  `tmux.configureServer`, in `openViewer` after the session exists). `allow-passthrough`
+  lets the tmux-wrapped OSC 52 that apps emit under `$TMUX` (Claude Code, neovim) reach the
+  attached client; tmux then forwards it down our pty → WebSocket → xterm, where the
+  `@xterm/addon-clipboard` handler writes the browser clipboard. The transport carries it
+  verbatim (raw binary output frames), so nothing else is needed gateway-side.
+- **Mouse / scrollback / selection:** the viewer is created with
+  `set-option -t <viewer> mouse on` (per-session, NOT `-g`) so the **wheel scrolls tmux's
+  scrollback** — tmux runs on the alternate screen, so without this the wheel becomes
+  cursor-up/down (cycling shell history). Scoped to the throwaway viewer, so a user's own
+  CLI `tmux attach` keeps its setting. We do **not** want tmux's mouse *selection*, though
+  (it auto-copies on release, and right-click pops a tmux menu), so `tmux.configureServer`
+  also `unbind`s `MouseDrag1Pane` + `MouseDown3Pane` — a plain drag and right-click do
+  nothing. **Native selection** is modifier+drag in xterm: **Option(⌥)+drag on macOS**
+  (needs `macOptionClickForcesSelection: true` on the `Terminal`, set in `TerminalPane.tsx`),
+  **Shift+drag elsewhere**, then Cmd/Ctrl+C — no auto-copy. (The unbinds are server-global
+  but only fire where mouse is on, i.e. our viewer; mouse-off CLI sessions never see them.)
 
 ## Run
 

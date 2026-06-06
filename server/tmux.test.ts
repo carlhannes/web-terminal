@@ -97,10 +97,15 @@ test("command builders quote pre-validated tokens", () => {
   assert.match(tmux.viewerCreate("web-alice-1", "_v-abc", 2), /set-option -t '_v-abc' mouse on/);
 });
 
-test("enableClipboard turns on passthrough and clipboard forwarding", () => {
-  const cmd = tmux.enableClipboard();
+test("configureServer: passthrough + clipboard forwarding, and trims plain-drag/right-click", () => {
+  const cmd = tmux.configureServer();
   assert.match(cmd, /set-option -g allow-passthrough on/);
   assert.match(cmd, /set-option -g set-clipboard on/);
+  // No tmux auto-copy on plain drag, no right-click menu (native selection is modifier+drag).
+  assert.match(cmd, /unbind-key -n MouseDrag1Pane/);
+  assert.match(cmd, /unbind-key -n MouseDown3Pane/);
+  // The wheel must still scroll, so its bindings stay.
+  assert.ok(!cmd.includes("WheelUpPane"));
 });
 
 test("list formats use a printable separator that tmux preserves (not a tab)", () => {

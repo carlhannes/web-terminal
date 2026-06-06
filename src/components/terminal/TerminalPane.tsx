@@ -67,6 +67,11 @@ export function TerminalPane({
       },
       allowProposedApi: true,
       scrollback: 5000,
+      // tmux has mouse mode on (so the wheel scrolls scrollback), which means a plain drag
+      // goes to tmux, not xterm. To still select text natively you hold a modifier: Shift on
+      // Win/Linux, Option(⌥) on macOS — but on macOS xterm ALSO requires this flag (it
+      // defaults off). Without it, nothing selects on a Mac while mouse mode is on.
+      macOptionClickForcesSelection: true,
     });
     const fit = new FitAddon();
     term.loadAddon(fit);

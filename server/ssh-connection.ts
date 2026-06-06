@@ -67,7 +67,7 @@ export class UserConnection implements HostConnection {
   private execQueue: Promise<unknown> = Promise.resolve();
   private closed = false;
   private closeCbs = new Set<() => void>();
-  private clipboardConfigured = false;
+  private serverConfigured = false;
 
   private constructor(
     private client: Client,
@@ -149,11 +149,11 @@ export class UserConnection implements HostConnection {
     dims: Dims,
   ): Promise<ClientChannel> {
     await this.exec(tmux.ensureSession(base));
-    // Once per connection (server now exists): allow OSC 52 clipboard through tmux.
-    if (!this.clipboardConfigured) {
-      this.clipboardConfigured = true;
-      await this.exec(tmux.enableClipboard()).catch((err) =>
-        log.warn("enable clipboard failed", { user: this.username, err: String(err) }),
+    // Once per connection (server now exists): clipboard passthrough + mouse-binding trims.
+    if (!this.serverConfigured) {
+      this.serverConfigured = true;
+      await this.exec(tmux.configureServer()).catch((err) =>
+        log.warn("configure server failed", { user: this.username, err: String(err) }),
       );
     }
     const created = await this.exec(tmux.viewerCreate(base, viewer, windowIndex));
