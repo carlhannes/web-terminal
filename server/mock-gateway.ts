@@ -101,10 +101,16 @@ const PROMPT = "$ ";
 
 // --------------------------- per-connection mock ----------------------------
 // In-memory only; everything resets when the socket closes. One MockConnection per socket.
+// Saved layouts persist per user at module scope so they survive reconnects/reloads (the
+// real gateway persists to disk). Sessions/windows are still reseeded per connection, but
+// the seeded window id (@0) is deterministic, so persisted per-window data like zoom
+// reapplies. This lets the mock exercise layout/zoom persistence in UI testing.
+const userLayouts = new Map<string, Map<string, DesktopLayout>>();
+
 class MockConnection {
   private sessions: SessionInfo[] = [];
   private windows = new Map<string, WindowInfo[]>(); // session -> windows
-  private layouts = new Map<string, DesktopLayout>(); // session -> saved layout
+  private layouts: Map<string, DesktopLayout>; // session -> saved layout (per-user, persisted)
   private lines = new Map<string, string>(); // `${session}:${windowId}` -> current input line
   private attached = new Set<string>(); // attached pane keys
   private winSeq = 0;
@@ -114,6 +120,10 @@ class MockConnection {
     private cfg: GatewayConfig,
     user: string,
   ) {
+    // Reuse this user's persisted layouts across connections.
+    this.layouts = userLayouts.get(user) ?? new Map();
+    userLayouts.set(user, this.layouts);
+
     // Seed one desktop with one window, like an ssh login giving you a shell.
     const name = `${cfg.sessionPrefix}-${user}-1`;
     this.windows.set(name, [this.mkWindow(0, "bash", true)]);

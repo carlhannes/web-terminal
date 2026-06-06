@@ -60,3 +60,6 @@ Checks: `npm run lint`, `npm run gateway:typecheck`, `npm run gateway:test`.
 - Browser-clipboard writes need a **secure context** — i.e. HTTPS or `localhost`.
 - **URLs are clickable** (web-links addon), and **inline images** (sixel / iTerm) render
   in-terminal (image addon).
+- **Per-pane zoom**: a dropdown in each pane's controls scales it 50–150% (via xterm's
+  font size, so text stays crisp and the grid reflows); the choice persists per window.
+  (A CSS-scale alternative is documented in [`docs/zoom-css-scale-fallback.md`](docs/zoom-css-scale-fallback.md).)

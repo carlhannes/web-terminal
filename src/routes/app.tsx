@@ -157,6 +157,7 @@ function AppPage() {
   const activeIndex = sessions.findIndex((s) => s.name === activeSession);
   const accent = colorForIndex(activeIndex >= 0 ? activeIndex : 0);
   const activeLayout = activeSession ? layouts[activeSession] : undefined;
+  const zoomByWindowId = activeLayout?.windowZooms ?? {};
   const tabs = activeLayout?.tabs ?? [];
   const activeTabId = activeSession ? activeTabBySession[activeSession] : undefined;
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
@@ -222,6 +223,19 @@ function AppPage() {
         t.id === activeTab.id ? { ...t, tree: setSizesAtPath(t.tree, path, sizes) } : t,
       );
       return { ...p, [activeSession]: { ...cur, tabs: tabs2 } };
+    });
+  }
+  // Zoom is stored on the desktop layout (windowId -> factor), so it rides the existing
+  // debounced saveLayout and persists per window.
+  function setZoom(windowId: string, zoom: number) {
+    if (!activeSession) return;
+    setLayouts((p) => {
+      const cur = p[activeSession];
+      if (!cur) return p;
+      return {
+        ...p,
+        [activeSession]: { ...cur, windowZooms: { ...cur.windowZooms, [windowId]: zoom } },
+      };
     });
   }
   async function logout() {
@@ -320,6 +334,7 @@ function AppPage() {
                 windowId={activeLeaf}
                 active
                 status={status}
+                zoom={zoomByWindowId[activeLeaf] ?? 1}
                 onFocus={() => setFocusedWindowId(activeLeaf)}
               />
             ) : (
@@ -329,10 +344,12 @@ function AppPage() {
                 client={client}
                 status={status}
                 activeWindowId={focusedWindowId ?? activeTab.activeWindowId}
+                zoomByWindowId={zoomByWindowId}
                 onFocus={setFocusedWindowId}
                 onSplit={splitPane}
                 onClose={closePane}
                 onResize={resizeSplit}
+                onZoomChange={setZoom}
               />
             )
           ) : (

@@ -3,6 +3,7 @@ import { SplitSquareHorizontal, SplitSquareVertical, X } from "lucide-react";
 
 import type { LayoutNode, LayoutPath } from "./types";
 import { TerminalPane } from "./TerminalPane";
+import { ZoomSelect } from "./ZoomSelect";
 import type { TerminalGatewayClient, GatewayStatus } from "@/lib/terminal-gateway";
 
 interface Props {
@@ -12,12 +13,15 @@ interface Props {
   status: GatewayStatus;
   /** Focused pane within the tab (for highlight + focus). */
   activeWindowId: string | null;
+  /** Per-window zoom factor (1 = 100%); windowId -> zoom. */
+  zoomByWindowId: Record<string, number>;
   /** Path of this node from the tree root (for size persistence). */
   path?: LayoutPath;
   onFocus: (windowId: string) => void;
   onSplit: (windowId: string, direction: "horizontal" | "vertical") => void;
   onClose: (windowId: string) => void;
   onResize: (path: LayoutPath, sizes: [number, number]) => void;
+  onZoomChange: (windowId: string, zoom: number) => void;
 }
 
 // Renders the best-effort web split layout. Leaves are tmux windows; splits are a
@@ -42,6 +46,10 @@ export function PaneTree(props: Props) {
           <IconBtn title="Close terminal" onClick={() => props.onClose(node.windowId)}>
             <X size={12} />
           </IconBtn>
+          <ZoomSelect
+            value={props.zoomByWindowId[node.windowId] ?? 1}
+            onChange={(z) => props.onZoomChange(node.windowId, z)}
+          />
         </div>
         <TerminalPane
           client={props.client}
@@ -49,6 +57,7 @@ export function PaneTree(props: Props) {
           windowId={node.windowId}
           active={active}
           status={props.status}
+          zoom={props.zoomByWindowId[node.windowId] ?? 1}
           onFocus={() => props.onFocus(node.windowId)}
         />
       </div>

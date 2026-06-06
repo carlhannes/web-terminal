@@ -17,8 +17,13 @@ interface Props {
   /** Whether this is the focused pane (drives focus + refit). */
   active: boolean;
   status: GatewayStatus;
+  /** Zoom factor (1 = 100%); scales the font size and reflows the grid. */
+  zoom?: number;
   onFocus?: () => void;
 }
+
+/** Font size at 100% zoom. */
+const BASE_FONT_SIZE = 13;
 
 const STATUS_LABEL: Record<GatewayStatus, string | null> = {
   open: null,
@@ -30,10 +35,21 @@ const STATUS_LABEL: Record<GatewayStatus, string | null> = {
 
 // One xterm bound to one tmux window, streamed over the gateway WebSocket. tmux
 // holds the real state, so on reconnect the gateway re-attaches and redraws.
-export function TerminalPane({ client, session, windowId, active, status, onFocus }: Props) {
+export function TerminalPane({
+  client,
+  session,
+  windowId,
+  active,
+  status,
+  zoom = 1,
+  onFocus,
+}: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
+  // Seeds the initial font size without making the build effect depend on `zoom` (which
+  // would recreate the whole terminal on every zoom change). Kept in sync by the zoom effect.
+  const zoomRef = useRef(zoom);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -42,7 +58,7 @@ export function TerminalPane({ client, session, windowId, active, status, onFocu
     const term = new Terminal({
       cursorBlink: true,
       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
-      fontSize: 13,
+      fontSize: BASE_FONT_SIZE * zoomRef.current,
       theme: {
         background: "#0a0a0a",
         foreground: "#e5e5e5",
@@ -142,6 +158,21 @@ export function TerminalPane({ client, session, windowId, active, status, onFocu
       });
     }
   }, [active]);
+
+  // Apply zoom by scaling the font size; FitAddon then recomputes cols/rows and onResize
+  // forwards the new grid to the gateway (the remote app reflows). Native + crisp — see
+  // docs/zoom-css-scale-fallback.md for why we don't use CSS transforms.
+  useEffect(() => {
+    zoomRef.current = zoom;
+    const term = termRef.current;
+    if (!term) return;
+    term.options.fontSize = BASE_FONT_SIZE * zoom;
+    try {
+      fitRef.current?.fit();
+    } catch {
+      /* not sized yet */
+    }
+  }, [zoom]);
 
   const label = STATUS_LABEL[status];
   return (

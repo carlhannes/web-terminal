@@ -50,6 +50,8 @@ export type LayoutTab = z.infer<typeof LayoutTabSchema>;
 export const DesktopLayoutSchema = z.object({
   order: z.number(),
   tabs: z.array(LayoutTabSchema),
+  /** Per-window zoom factor (1 = 100%); windowId -> zoom. Optional/back-compat. */
+  windowZooms: z.record(z.string(), z.number()).optional(),
 });
 export type DesktopLayout = z.infer<typeof DesktopLayoutSchema>;
 
@@ -112,7 +114,15 @@ export function reconcileLayout(
     });
   }
 
-  return { order: saved?.order ?? order, tabs };
+  // Carry per-window zoom through, pruned to windows that still exist (so the map can't
+  // accumulate orphans). Only attach the field when something survives.
+  let windowZooms: Record<string, number> | undefined;
+  if (saved?.windowZooms) {
+    const kept = Object.entries(saved.windowZooms).filter(([id]) => live.has(id));
+    if (kept.length) windowZooms = Object.fromEntries(kept);
+  }
+
+  return { order: saved?.order ?? order, tabs, ...(windowZooms ? { windowZooms } : {}) };
 }
 
 // ---------------------------------------------------------------------------
