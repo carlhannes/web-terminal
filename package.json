@@ -27,7 +27,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "gateway:dev": "tsx watch server/terminal-gateway.ts",
-    "gateway:mock": "tsx watch server/mock-gateway.ts",
+    "gateway:mock": "MOCK_SSH=1 tsx watch server/terminal-gateway.ts",
     "gateway:start": "tsx server/terminal-gateway.ts",
     "gateway:typecheck": "tsc -p server",
     "gateway:test": "node --import tsx --test server/*.test.ts"

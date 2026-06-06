@@ -15,6 +15,20 @@ export interface Dims {
   rows: number;
 }
 
+// The seam between the gateway and the remote host. The gateway and registry depend ONLY
+// on this interface, so the real ssh2-backed `UserConnection` and a dev-only
+// `FakeHostConnection` (tmux+shell emulated in memory) are interchangeable. This is what
+// lets us run the entire real gateway in dev without an SSH host — see fake-host-connection.ts.
+export interface HostConnection {
+  readonly username: string;
+  /** Run a tmux control command; returns its stdout/stderr/exit code. */
+  exec(command: string): Promise<ExecResult>;
+  /** Open the live pane stream (a ssh2 ClientChannel, or a fake that quacks like one). */
+  openViewer(base: string, viewer: string, windowIndex: number, dims: Dims): Promise<ClientChannel>;
+  onClose(cb: () => void): void;
+  destroy(): void;
+}
+
 // Coarse, safe-to-surface reason for a failed SSH connect. Without this, the auth
 // catch site reports every failure identically, so a reboot that breaks container->host
 // networking looks the same as a wrong password ("authentication failed").
@@ -48,7 +62,7 @@ export function classifyConnectError(err: unknown): { reason: AuthFailReason; de
 // One ssh2 connection per authenticated user, reused for many channels:
 // short-lived `exec` channels for tmux control ops (serialized) and one
 // interactive shell channel per attached pane (the live stream).
-export class UserConnection {
+export class UserConnection implements HostConnection {
   readonly createdAt = Date.now();
   private execQueue: Promise<unknown> = Promise.resolve();
   private closed = false;

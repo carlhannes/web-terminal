@@ -28,6 +28,9 @@ export interface GatewayConfig {
   sessionPrefix: string;
   isProduction: boolean;
   cookieSecure: boolean;
+  /** DEV ONLY: fake the ssh2/host connection (tmux+shell) so the UI runs without a real
+   * SSH host. Forced off in production regardless of env. See fake-host-connection.ts. */
+  mockSsh: boolean;
 }
 
 function num(v: string | undefined, dflt: number): number {
@@ -64,5 +67,7 @@ export function getGatewayConfig(): GatewayConfig {
     sessionPrefix: process.env.SESSION_PREFIX || "web",
     isProduction,
     cookieSecure: process.env.COOKIE_SECURE ? process.env.COOKIE_SECURE === "true" : isProduction,
+    // Never allow the fake host in production, even if MOCK_SSH leaks into the env.
+    mockSsh: !isProduction && process.env.MOCK_SSH === "1",
   };
 }

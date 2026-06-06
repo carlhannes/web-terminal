@@ -38,14 +38,16 @@ npm run dev          # web app (Vite); proxies /ws and /auth to the gateway
 npm run gateway:dev  # terminal gateway (separate process; needs a real SSH host + tmux)
 ```
 
-For UI-only work without an SSH host, run the **mock gateway** instead of `gateway:dev`:
+For UI-only work without an SSH host, run the **real gateway with `MOCK_SSH=1`** instead of
+`gateway:dev` — only the ssh2/host connection is faked:
 
 ```sh
-npm run gateway:mock # opt-in, dev-only fake shell (no ssh2/tmux); log in with any creds
+npm run gateway:mock # = MOCK_SSH=1 …terminal-gateway.ts (dev-only); log in with any creds
 ```
 
-It speaks the real WebSocket protocol so xterm/tabs/splits/mobile all render, but every
-command just returns `command not found`. See [`server/README.md`](server/README.md).
+Everything but the remote host is real (auth, protocol, tmux parsing, layout persistence),
+so each pane is a fake shell that returns `command not found`. See
+[`server/README.md`](server/README.md).
 
 Checks: `npm run lint`, `npm run gateway:typecheck`, `npm run gateway:test`.
 
