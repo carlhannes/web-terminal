@@ -43,6 +43,23 @@ Configure via env (see `.env.example`). Key vars: `SSH_HOST`/`SSH_PORT`,
 `SSH_KNOWN_HOSTS` (required in prod), `ALLOWED_ORIGIN` (required in prod),
 `GATEWAY_PORT` (default 8081).
 
+## Mock gateway (UI dev without SSH)
+
+`server/mock-gateway.ts` is an **opt-in, dev-only** stand-in that needs no ssh2/tmux/SSH
+host. Run it **instead of** `gateway:dev`:
+
+```sh
+npm run dev          # frontend
+npm run gateway:mock # fake-shell gateway on :8081 — log in with ANY username/password
+```
+
+It reuses the real wire contract (`protocol.ts`) and `config.ts`, so the whole UI
+(desktops, tabs, splits, mobile layout, OSC 52, layout persistence) behaves identically —
+but each pane is a fake shell: it prints `This is not a real shell, for UI testing purposes
+only` on connect and answers every command with `<cmd>: command not found`. All state is
+in-memory per connection. It **refuses to start with `NODE_ENV=production`** and binds to
+loopback. The real gateway (`terminal-gateway.ts`) is the only thing used in production.
+
 ## Checks
 
 ```sh

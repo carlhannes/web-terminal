@@ -2,19 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Plus, X, LogOut } from "lucide-react";
 
-// 8 distinct desktop accent colors — cycled by desktop index.
-const DESKTOP_COLORS = [
-  "oklch(0.72 0.17 250)", // blue
-  "oklch(0.74 0.17 145)", // green
-  "oklch(0.78 0.17 75)", // amber
-  "oklch(0.68 0.22 25)", // red
-  "oklch(0.70 0.20 310)", // magenta
-  "oklch(0.74 0.15 195)", // cyan
-  "oklch(0.76 0.18 110)", // lime
-  "oklch(0.72 0.17 35)", // orange
-];
-const colorForIndex = (i: number) => DESKTOP_COLORS[i % DESKTOP_COLORS.length];
-
 // Correlation id for newWindow requests. NOT crypto.randomUUID(): that is
 // secure-context-only and is undefined over plain http://<LAN-IP>, which silently
 // broke "new tab"/split while desktops (which need no id) kept working.
@@ -33,6 +20,8 @@ import { PaneTree } from "@/components/terminal/PaneTree";
 import { TerminalPane } from "@/components/terminal/TerminalPane";
 import { MobileKeyBar } from "@/components/terminal/MobileKeyBar";
 import { MobilePaneSwitcher } from "@/components/terminal/MobilePaneSwitcher";
+import { DesktopSwitcher } from "@/components/terminal/DesktopSwitcher";
+import { colorForIndex } from "@/components/terminal/desktop-colors";
 import { useTerminalGateway } from "@/hooks/useTerminalGateway";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useViewportHeight } from "@/hooks/useViewportHeight";
@@ -249,9 +238,21 @@ function AppPage() {
 
   return (
     <div
-      className="flex h-dvh w-screen flex-col bg-background text-foreground"
+      className="app-shell flex h-svh w-full flex-col bg-background text-foreground"
       style={viewportHeight ? { height: `${viewportHeight}px` } : undefined}
     >
+      {/* Mobile: desktop chooser as a horizontal strip above the tabs (the right rail is
+          hidden on mobile). */}
+      {isMobile && (
+        <DesktopSwitcher
+          orientation="horizontal"
+          sessions={sessions}
+          activeSession={activeSession}
+          onSelect={selectDesktop}
+          onAdd={addDesktop}
+        />
+      )}
+
       {/* Tab bar */}
       <div
         className="flex h-9 shrink-0 items-end gap-1 px-2 transition-colors"
@@ -340,44 +341,17 @@ function AppPage() {
             </div>
           )}
         </div>
-        <div className="flex w-12 shrink-0 flex-col items-center gap-1.5 border-l border-border bg-card py-2">
-          {sessions.map((d, i) => {
-            const isActive = d.name === activeSession;
-            const c = colorForIndex(i);
-            return (
-              <button
-                key={d.name}
-                type="button"
-                onClick={() => selectDesktop(d.name)}
-                onAuxClick={(e) => {
-                  if (e.button === 1) removeDesktop(d.name);
-                }}
-                title={`Desktop ${i + 1} (${d.name}) — middle-click to remove`}
-                className="relative flex h-9 w-9 items-center justify-center rounded-md border font-mono text-sm font-semibold transition-all"
-                style={
-                  isActive
-                    ? {
-                        borderColor: c,
-                        backgroundColor: `color-mix(in oklch, ${c} 22%, transparent)`,
-                        color: c,
-                        boxShadow: `inset 0 0 0 1px ${c}`,
-                      }
-                    : { borderColor: "var(--color-border)", color: c, opacity: 0.55 }
-                }
-              >
-                {i + 1}
-              </button>
-            );
-          })}
-          <button
-            type="button"
-            onClick={addDesktop}
-            className="flex h-9 w-9 items-center justify-center rounded-md border border-dashed border-border text-muted-foreground hover:text-foreground"
-            aria-label="New desktop"
-          >
-            <Plus size={16} />
-          </button>
-        </div>
+        {/* Desktop: the chooser is the right rail. On mobile it moves to the top strip. */}
+        {!isMobile && (
+          <DesktopSwitcher
+            orientation="vertical"
+            sessions={sessions}
+            activeSession={activeSession}
+            onSelect={selectDesktop}
+            onAdd={addDesktop}
+            onRemove={removeDesktop}
+          />
+        )}
       </div>
 
       {/* Mobile bottom stack: pane switcher (only when split) + accessory key bar. */}

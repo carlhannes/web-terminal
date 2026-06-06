@@ -35,8 +35,17 @@ cert (generated on first start; browsers warn once). Other machines use
 
 ```sh
 npm run dev          # web app (Vite); proxies /ws and /auth to the gateway
-npm run gateway:dev  # terminal gateway (separate process)
+npm run gateway:dev  # terminal gateway (separate process; needs a real SSH host + tmux)
 ```
+
+For UI-only work without an SSH host, run the **mock gateway** instead of `gateway:dev`:
+
+```sh
+npm run gateway:mock # opt-in, dev-only fake shell (no ssh2/tmux); log in with any creds
+```
+
+It speaks the real WebSocket protocol so xterm/tabs/splits/mobile all render, but every
+command just returns `command not found`. See [`server/README.md`](server/README.md).
 
 Checks: `npm run lint`, `npm run gateway:typecheck`, `npm run gateway:test`.
 
