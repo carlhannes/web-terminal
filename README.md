@@ -49,3 +49,5 @@ Checks: `npm run lint`, `npm run gateway:typecheck`, `npm run gateway:test`.
   dragging (to bypass an app's mouse capture) then **Cmd+C** / **Ctrl+Shift+C**. Plain
   **Ctrl+C** is left untouched so it still sends `SIGINT`.
 - Browser-clipboard writes need a **secure context** — i.e. HTTPS or `localhost`.
+- **URLs are clickable** (web-links addon), and **inline images** (sixel / iTerm) render
+  in-terminal (image addon).

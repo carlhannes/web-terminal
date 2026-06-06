@@ -108,3 +108,25 @@ test("reconcileLayout: drops empty tabs and appends unknown windows", () => {
   assert.deepEqual(out.tabs[0].tree, { kind: "leaf", windowId: "@0" });
   assert.equal(out.tabs[0].title, "zsh");
 });
+
+test("reconcileLayout: empty windows snapshot keeps the saved split tree intact", () => {
+  const saved: DesktopLayout = {
+    order: 0,
+    tabs: [
+      {
+        id: "tab-1",
+        title: "code",
+        activeWindowId: "@0",
+        tree: {
+          kind: "split",
+          direction: "horizontal",
+          sizes: [50, 50],
+          a: { kind: "leaf", windowId: "@0" },
+          b: { kind: "leaf", windowId: "@1" },
+        },
+      },
+    ],
+  };
+  // A transient/stale empty list (e.g. right after a gateway restart) must NOT flatten.
+  assert.deepEqual(reconcileLayout(saved, []), saved);
+});

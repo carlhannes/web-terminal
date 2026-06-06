@@ -148,7 +148,9 @@ export class UserConnection {
     }
     const stream = await this.openShell(dims);
     // `exec` replaces the login shell with tmux so the channel closes when tmux detaches.
-    stream.write(`exec ${tmux.viewerAttach(viewer)}\n`);
+    // Leading space keeps it out of the user's shell history when HISTCONTROL contains
+    // `ignorespace`/`ignoreboth` (the common default); harmless otherwise.
+    stream.write(` exec ${tmux.viewerAttach(viewer)}\n`);
     return stream;
   }
 

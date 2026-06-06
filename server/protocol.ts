@@ -84,6 +84,10 @@ export function reconcileLayout(
   windows: WindowInfo[],
   order = 0,
 ): DesktopLayout {
+  // A tmux session always has >=1 window, so an empty list is a transient/stale snapshot
+  // (e.g. right after a gateway restart). Pruning against it would wipe a saved split tree
+  // we can't reconstruct, so keep `saved` untouched instead.
+  if (windows.length === 0 && saved) return saved;
   const live = new Set(windows.map((w) => w.id));
   const referenced = new Set<string>();
   const tabs: LayoutTab[] = [];
