@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Plus, X, LogOut } from "lucide-react";
+import { Plus, X, LogOut, Pencil } from "lucide-react";
 
 // Correlation id for newWindow requests. NOT crypto.randomUUID(): that is
 // secure-context-only and is undefined over plain http://<LAN-IP>, which silently
@@ -41,6 +41,25 @@ type SplitIntent = {
 };
 type TabIntent = { kind: "tab"; session: string };
 
+/** Last path segment of an absolute path (e.g. "/home/alice/src" -> "src"). */
+function basename(path: string): string {
+  const trimmed = path.replace(/\/+$/, "");
+  if (!trimmed) return "/";
+  const slash = trimmed.lastIndexOf("/");
+  return slash >= 0 ? trimmed.slice(slash + 1) : trimmed;
+}
+
+/** Display label for a tab: the user's custom name if set, else the active window's cwd. */
+function tabLabel(
+  tab: { name?: string; activeWindowId: string },
+  cwdByWindowId: Record<string, string>,
+): string {
+  const custom = tab.name?.trim();
+  if (custom) return custom;
+  const cwd = cwdByWindowId[tab.activeWindowId];
+  return (cwd && basename(cwd)) || "Terminal";
+}
+
 function AppPage() {
   const { client, sessions, status } = useTerminalGateway();
   const isMobile = useIsMobile();
@@ -50,6 +69,13 @@ function AppPage() {
   const [activeSession, setActiveSession] = useState<string | null>(null);
   const [activeTabBySession, setActiveTabBySession] = useState<Record<string, string>>({});
   const [focusedWindowId, setFocusedWindowId] = useState<string | null>(null);
+  // Live working directory per tmux window (windowId -> #{pane_current_path}); drives the
+  // default tab label when the user hasn't set a custom name. Pushed by the windows poll.
+  const [cwdByWindowId, setCwdByWindowId] = useState<Record<string, string>>({});
+  // Inline tab rename: the tab currently being edited (null = none).
+  const [editingTabId, setEditingTabId] = useState<string | null>(null);
+  // Right-click tab context menu (viewport coords), or null when closed.
+  const [tabMenu, setTabMenu] = useState<{ tabId: string; x: number; y: number } | null>(null);
 
   const intents = useRef(new Map<string, SplitIntent | TabIntent>());
   const saveTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
@@ -62,6 +88,11 @@ function AppPage() {
       setLayouts((p) => ({ ...p, [session]: layout }));
     });
     const offWindows = client.onWindows((session, windows) => {
+      setCwdByWindowId((prev) => {
+        const next = { ...prev };
+        for (const w of windows) next[w.id] = w.cwd;
+        return next;
+      });
       setLayouts((p) => {
         const cur = p[session];
         return { ...p, [session]: reconcileLayout(cur, windows, cur?.order ?? 0) };
@@ -153,6 +184,16 @@ function AppPage() {
     if (status === "auth-error") window.location.href = "/login";
   }, [status]);
 
+  // Escape closes the tab context menu (click-away is handled by its backdrop).
+  useEffect(() => {
+    if (!tabMenu) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setTabMenu(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [tabMenu]);
+
   // ---- derived ----
   const activeIndex = sessions.findIndex((s) => s.name === activeSession);
   const accent = colorForIndex(activeIndex >= 0 ? activeIndex : 0);
@@ -238,6 +279,22 @@ function AppPage() {
       };
     });
   }
+  // Custom tab label (web-only). Stored on the layout tab so it rides the existing debounced
+  // saveLayout, exactly like setZoom. Empty/whitespace clears it -> back to the live cwd default.
+  function setTabName(tabId: string, name: string) {
+    if (!activeSession) return;
+    const trimmed = name.trim();
+    setLayouts((p) => {
+      const cur = p[activeSession];
+      if (!cur) return p;
+      const tabs = cur.tabs.map((t) => (t.id === tabId ? { ...t, name: trimmed || undefined } : t));
+      return { ...p, [activeSession]: { ...cur, tabs } };
+    });
+  }
+  function beginRename(tabId: string) {
+    setTabMenu(null);
+    setEditingTabId(tabId);
+  }
   async function logout() {
     try {
       await fetch(`${gatewayHttpBase()}/auth/logout`, { method: "POST", credentials: "include" });
@@ -274,10 +331,16 @@ function AppPage() {
       >
         {tabs.map((t) => {
           const isActive = t.id === activeTab?.id;
+          const editing = editingTabId === t.id;
           return (
             <div
               key={t.id}
-              onClick={() => selectTab(t.id)}
+              onClick={() => !editing && selectTab(t.id)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setEditingTabId(null);
+                setTabMenu({ tabId: t.id, x: e.clientX, y: e.clientY });
+              }}
               className={`group relative flex h-7 cursor-pointer items-center gap-2 rounded-t-md px-3 text-xs transition-colors ${
                 isActive
                   ? "text-foreground"
@@ -285,7 +348,39 @@ function AppPage() {
               }`}
               style={isActive ? { backgroundColor: "#0a0a0a", marginBottom: "-1px" } : undefined}
             >
-              <span className="font-mono">{t.title}</span>
+              {editing ? (
+                <input
+                  autoFocus
+                  defaultValue={t.name ?? ""}
+                  placeholder={tabLabel(t, cwdByWindowId)}
+                  onClick={(e) => e.stopPropagation()}
+                  onFocus={(e) => e.currentTarget.select()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      setTabName(t.id, e.currentTarget.value);
+                      setEditingTabId(null);
+                    } else if (e.key === "Escape") {
+                      setEditingTabId(null);
+                    }
+                  }}
+                  onBlur={(e) => {
+                    setTabName(t.id, e.currentTarget.value);
+                    setEditingTabId(null);
+                  }}
+                  className="w-24 rounded bg-black/40 px-1 font-mono text-xs text-foreground outline-none ring-1 ring-primary/60"
+                />
+              ) : (
+                <span
+                  className="font-mono"
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    beginRename(t.id);
+                  }}
+                  title="Double-click to rename"
+                >
+                  {tabLabel(t, cwdByWindowId)}
+                </span>
+              )}
               <button
                 type="button"
                 onClick={(e) => {
@@ -333,24 +428,50 @@ function AppPage() {
                 session={activeSession as string}
                 windowId={activeLeaf}
                 active
+                visible
                 status={status}
                 zoom={zoomByWindowId[activeLeaf] ?? 1}
                 onFocus={() => setFocusedWindowId(activeLeaf)}
               />
             ) : (
-              <PaneTree
-                node={activeTab.tree}
-                session={activeSession as string}
-                client={client}
-                status={status}
-                activeWindowId={focusedWindowId ?? activeTab.activeWindowId}
-                zoomByWindowId={zoomByWindowId}
-                onFocus={setFocusedWindowId}
-                onSplit={splitPane}
-                onClose={closePane}
-                onResize={resizeSplit}
-                onZoomChange={setZoom}
-              />
+              // Desktop: keep EVERY tab of the active desktop mounted and attached, showing
+              // only the active one. Hidden tabs use visibility:hidden (NOT display:none) so
+              // they keep their box size — xterm/FitAddon stay correctly sized, so switching
+              // back needs no re-attach and no tmux resize, hence no redraw flash.
+              tabs.map((tab) => {
+                const tabVisible = tab.id === activeTab.id;
+                // Focused pane WITHIN this tab: the global focus only counts if it belongs to
+                // this tab; otherwise fall back to the tab's own remembered active window so the
+                // visible tab always has a pane to highlight + focus on switch.
+                const tabLeaves = leafWindowIds(tab.tree);
+                const focused =
+                  tabVisible && focusedWindowId && tabLeaves.includes(focusedWindowId)
+                    ? focusedWindowId
+                    : tab.activeWindowId;
+                return (
+                  <div
+                    key={tab.id}
+                    className="absolute inset-0"
+                    style={{ visibility: tabVisible ? "visible" : "hidden" }}
+                    aria-hidden={!tabVisible}
+                  >
+                    <PaneTree
+                      node={tab.tree}
+                      session={activeSession as string}
+                      client={client}
+                      status={status}
+                      visible={tabVisible}
+                      activeWindowId={focused}
+                      zoomByWindowId={zoomByWindowId}
+                      onFocus={setFocusedWindowId}
+                      onSplit={splitPane}
+                      onClose={closePane}
+                      onResize={resizeSplit}
+                      onZoomChange={setZoom}
+                    />
+                  </div>
+                );
+              })
             )
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -381,6 +502,43 @@ function AppPage() {
         />
       )}
       {isMobile && <MobileKeyBar onKey={sendKey} />}
+
+      {/* Tab context menu (right-click). Backdrop closes it on any outside click. */}
+      {tabMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setTabMenu(null)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setTabMenu(null);
+            }}
+          />
+          <div
+            className="fixed z-50 min-w-32 overflow-hidden rounded-md border border-border bg-card py-1 text-xs shadow-lg"
+            style={{ left: tabMenu.x, top: tabMenu.y }}
+          >
+            <button
+              type="button"
+              onClick={() => beginRename(tabMenu.tabId)}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-muted"
+            >
+              <Pencil size={12} /> Rename
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const tab = tabs.find((t) => t.id === tabMenu.tabId);
+                setTabMenu(null);
+                if (tab) closeTab(tab);
+              }}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-red-400 hover:bg-muted"
+            >
+              <X size={12} /> Close
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

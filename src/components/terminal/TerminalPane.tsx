@@ -16,6 +16,8 @@ interface Props {
   windowId: string;
   /** Whether this is the focused pane (drives focus + refit). */
   active: boolean;
+  /** Whether this pane's tab is the visible one. Hidden-but-mounted tabs must not grab focus. */
+  visible?: boolean;
   status: GatewayStatus;
   /** Zoom factor (1 = 100%); scales the font size and reflows the grid. */
   zoom?: number;
@@ -40,6 +42,7 @@ export function TerminalPane({
   session,
   windowId,
   active,
+  visible = true,
   status,
   zoom = 1,
   onFocus,
@@ -151,8 +154,11 @@ export function TerminalPane({
     };
   }, [client, session, windowId]);
 
+  // Refit + focus when this becomes the visible+focused pane (e.g. on tab switch). The pane
+  // stayed sized while hidden (visibility:hidden keeps its box), so fit() is a no-op grid-wise
+  // — no tmux resize, no redraw flash; this just moves the cursor/focus here.
   useEffect(() => {
-    if (active) {
+    if (visible && active) {
       requestAnimationFrame(() => {
         try {
           fitRef.current?.fit();
@@ -162,7 +168,7 @@ export function TerminalPane({
         }
       });
     }
-  }, [active]);
+  }, [visible, active]);
 
   // Apply zoom by scaling the font size; FitAddon then recomputes cols/rows and onResize
   // forwards the new grid to the gateway (the remote app reflows). Native + crisp — see

@@ -41,7 +41,13 @@ export const LayoutNodeSchema: z.ZodType<LayoutNode> = z.lazy(() =>
 
 export const LayoutTabSchema = z.object({
   id: z.string(),
-  title: z.string(),
+  /**
+   * User's custom tab label (web-only, persisted here). When unset, the client shows a
+   * live default derived from the active window's cwd (basename of #{pane_current_path}).
+   * Older layouts persisted a `title` field instead; Zod strips it on read, so those tabs
+   * fall back to the live default rather than showing a frozen name.
+   */
+  name: z.string().optional(),
   tree: LayoutNodeSchema,
   activeWindowId: z.string(),
 });
@@ -108,7 +114,6 @@ export function reconcileLayout(
   for (const w of orphans) {
     tabs.push({
       id: `tab-${w.id}`,
-      title: w.name || `win ${w.index}`,
       tree: { kind: "leaf", windowId: w.id },
       activeWindowId: w.id,
     });
@@ -140,6 +145,8 @@ export interface WindowInfo {
   id: string;
   index: number;
   name: string;
+  /** Active pane's working directory (#{pane_current_path}); drives the live tab label. */
+  cwd: string;
   active: boolean;
 }
 

@@ -58,10 +58,11 @@ test("decodeOutputFrame returns null on non-output bytes", () => {
   assert.equal(decodeOutputFrame(new Uint8Array([0x00, 1, 2])), null);
 });
 
-const win = (id: string, index: number, name = "sh"): WindowInfo => ({
+const win = (id: string, index: number, name = "sh", cwd = "/home/alice"): WindowInfo => ({
   id,
   index,
   name,
+  cwd,
   active: false,
 });
 
@@ -78,7 +79,7 @@ test("reconcileLayout: collapses a split when one side's window is gone", () => 
     tabs: [
       {
         id: "tab-1",
-        title: "code",
+        name: "code",
         activeWindowId: "@0",
         tree: {
           kind: "split",
@@ -98,15 +99,14 @@ test("reconcileLayout: collapses a split when one side's window is gone", () => 
 test("reconcileLayout: drops empty tabs and appends unknown windows", () => {
   const saved: DesktopLayout = {
     order: 2,
-    tabs: [
-      { id: "t", title: "dead", activeWindowId: "@9", tree: { kind: "leaf", windowId: "@9" } },
-    ],
+    tabs: [{ id: "t", name: "dead", activeWindowId: "@9", tree: { kind: "leaf", windowId: "@9" } }],
   };
   const out = reconcileLayout(saved, [win("@0", 0, "zsh")]); // @9 gone, @0 new
   assert.equal(out.order, 2);
   assert.equal(out.tabs.length, 1);
   assert.deepEqual(out.tabs[0].tree, { kind: "leaf", windowId: "@0" });
-  assert.equal(out.tabs[0].title, "zsh");
+  // Orphan tabs carry NO persisted name; the client derives a live label (cwd basename).
+  assert.equal(out.tabs[0].name, undefined);
 });
 
 test("reconcileLayout: empty windows snapshot keeps the saved split tree intact", () => {
@@ -115,7 +115,7 @@ test("reconcileLayout: empty windows snapshot keeps the saved split tree intact"
     tabs: [
       {
         id: "tab-1",
-        title: "code",
+        name: "code",
         activeWindowId: "@0",
         tree: {
           kind: "split",
@@ -134,7 +134,7 @@ test("reconcileLayout: empty windows snapshot keeps the saved split tree intact"
 test("reconcileLayout: carries per-window zoom and prunes orphaned windows", () => {
   const saved: DesktopLayout = {
     order: 0,
-    tabs: [{ id: "t", title: "a", activeWindowId: "@0", tree: { kind: "leaf", windowId: "@0" } }],
+    tabs: [{ id: "t", name: "a", activeWindowId: "@0", tree: { kind: "leaf", windowId: "@0" } }],
     windowZooms: { "@0": 1.5, "@9": 0.5 }, // @9 no longer exists
   };
   const out = reconcileLayout(saved, [win("@0", 0)]);
@@ -144,7 +144,7 @@ test("reconcileLayout: carries per-window zoom and prunes orphaned windows", () 
 test("reconcileLayout: omits windowZooms when none survive", () => {
   const saved: DesktopLayout = {
     order: 0,
-    tabs: [{ id: "t", title: "a", activeWindowId: "@0", tree: { kind: "leaf", windowId: "@0" } }],
+    tabs: [{ id: "t", name: "a", activeWindowId: "@0", tree: { kind: "leaf", windowId: "@0" } }],
     windowZooms: { "@9": 0.7 },
   };
   const out = reconcileLayout(saved, [win("@0", 0)]);

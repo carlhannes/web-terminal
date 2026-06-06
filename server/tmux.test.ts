@@ -60,18 +60,31 @@ test("parseSessions parses separated output", () => {
   assert.equal(sessions[1].name, "_v-abc");
 });
 
-test("parseWindows parses and reads active flag from last field", () => {
-  const out = "@0|0|zsh|1\n@1|1|vim|0\n";
+test("parseWindows parses fixed leading fields (id/index/active), cwd, then name", () => {
+  const out = "@0|0|1|/home/alice|zsh\n@1|1|0|/tmp|vim\n";
   const windows = parseWindows(out);
   assert.equal(windows.length, 2);
-  assert.deepEqual(windows[0], { id: "@0", index: 0, name: "zsh", active: true });
-  assert.deepEqual(windows[1], { id: "@1", index: 1, name: "vim", active: false });
+  assert.deepEqual(windows[0], {
+    id: "@0",
+    index: 0,
+    name: "zsh",
+    cwd: "/home/alice",
+    active: true,
+  });
+  assert.deepEqual(windows[1], { id: "@1", index: 1, name: "vim", cwd: "/tmp", active: false });
 });
 
 test("parseWindows keeps a separator that appears inside a window name", () => {
-  const windows = parseWindows("@0|0|a|b|1\n");
+  // name is greedy-to-end, so a "|" inside it survives; cwd stays its own field.
+  const windows = parseWindows("@0|0|1|/home/alice|a|b\n");
   assert.equal(windows.length, 1);
-  assert.deepEqual(windows[0], { id: "@0", index: 0, name: "a|b", active: true });
+  assert.deepEqual(windows[0], {
+    id: "@0",
+    index: 0,
+    name: "a|b",
+    cwd: "/home/alice",
+    active: true,
+  });
 });
 
 test("command builders quote pre-validated tokens", () => {

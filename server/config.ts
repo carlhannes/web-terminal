@@ -60,7 +60,7 @@ export function getGatewayConfig(): GatewayConfig {
     sessionTtlMs: num(process.env.SESSION_TTL_MS, 12 * 60 * 60_000),
     listPollMs: num(process.env.LIST_POLL_MS, 2000),
     maxDesktopsPerUser: num(process.env.MAX_DESKTOPS_PER_USER, 8),
-    maxPanesPerUser: num(process.env.MAX_PANES_PER_USER, 8),
+    maxPanesPerUser: num(process.env.MAX_PANES_PER_USER, 16),
     authRateMax: num(process.env.AUTH_RATE_MAX, 5),
     authRateWindowMs: num(process.env.AUTH_RATE_WINDOW_MS, 15 * 60_000),
     layoutDir: process.env.LAYOUT_DIR || defaultLayoutDir(),

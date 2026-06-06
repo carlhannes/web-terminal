@@ -24,6 +24,7 @@ interface FakeWindow {
   id: string;
   index: number;
   name: string;
+  cwd: string;
   active: boolean;
 }
 interface FakeSession {
@@ -134,7 +135,7 @@ export class FakeHostConnection implements HostConnection {
       const s = this.sessions.get(argAfter("-t", cmd) ?? "");
       if (!s) return ok("");
       const lines = s.windows.map(
-        (w) => `${w.id}${SEP}${w.index}${SEP}${w.name}${SEP}${w.active ? 1 : 0}`,
+        (w) => `${w.id}${SEP}${w.index}${SEP}${w.active ? 1 : 0}${SEP}${w.cwd}${SEP}${w.name}`,
       );
       return ok(lines.map((l) => l + "\n").join(""));
     }
@@ -195,6 +196,7 @@ export class FakeHostConnection implements HostConnection {
       id: `@${this.winSeq++}`,
       index: s.windows.length,
       name,
+      cwd: "/home/user",
       active: true,
     };
     s.windows.push(win);

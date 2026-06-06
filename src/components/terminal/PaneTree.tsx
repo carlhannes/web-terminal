@@ -11,6 +11,8 @@ interface Props {
   session: string;
   client: TerminalGatewayClient;
   status: GatewayStatus;
+  /** Whether this tab is the visible one (hidden tabs stay mounted but must not grab focus). */
+  visible: boolean;
   /** Focused pane within the tab (for highlight + focus). */
   activeWindowId: string | null;
   /** Per-window zoom factor (1 = 100%); windowId -> zoom. */
@@ -56,6 +58,7 @@ export function PaneTree(props: Props) {
           session={props.session}
           windowId={node.windowId}
           active={active}
+          visible={props.visible}
           status={props.status}
           zoom={props.zoomByWindowId[node.windowId] ?? 1}
           onFocus={() => props.onFocus(node.windowId)}

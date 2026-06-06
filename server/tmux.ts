@@ -69,9 +69,16 @@ const F_SESS = [
   "#{session_windows}",
   "#{session_created}",
 ].join(FIELD_SEP);
-const F_WIN = ["#{window_id}", "#{window_index}", "#{window_name}", "#{window_active}"].join(
-  FIELD_SEP,
-);
+// Sep-free fields (id/index/active) lead so they parse at fixed positions; cwd takes one
+// slot; window_name is LAST so it can be reconstructed greedily even if it contains the
+// separator (tmux auto-rename / a CLI rename can produce arbitrary names — see parseWindows).
+const F_WIN = [
+  "#{window_id}",
+  "#{window_index}",
+  "#{window_active}",
+  "#{pane_current_path}",
+  "#{window_name}",
+].join(FIELD_SEP);
 
 // Command builders. `q` single-quotes a pre-validated token.
 const q = (s: string) => `'${s}'`;
@@ -159,13 +166,15 @@ export function parseWindows(out: string): WindowInfo[] {
     .filter((l) => l.trim().length > 0)
     .map((line) => {
       const parts = line.split(FIELD_SEP);
-      // window_name (field 2) may itself contain the separator; id/index/active cannot,
-      // so reconstruct the name from the middle fields (active is always last).
+      // id/index/active/cwd occupy fixed leading slots (none contain the separator in
+      // practice — a "|" in a directory path is legal but vanishingly rare); window_name is
+      // greedy-to-end so it survives even when it contains the separator.
       const id = parts[0] ?? "";
       const index = Number(parts[1]) || 0;
-      const active = parts[parts.length - 1] === "1";
-      const name = parts.slice(2, parts.length - 1).join(FIELD_SEP);
-      return { id, index, name, active };
+      const active = parts[2] === "1";
+      const cwd = parts[3] ?? "";
+      const name = parts.slice(4).join(FIELD_SEP);
+      return { id, index, name, cwd, active };
     })
     .filter((w) => w.id);
 }
