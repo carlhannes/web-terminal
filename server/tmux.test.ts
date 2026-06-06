@@ -93,6 +93,8 @@ test("command builders quote pre-validated tokens", () => {
   // Must NOT set destroy-unattached: tmux would destroy the detached viewer before attach.
   assert.ok(!tmux.viewerCreate("web-alice-1", "_v-abc", 2).includes("destroy-unattached"));
   assert.match(tmux.viewerCreate("web-alice-1", "_v-abc", 2), /select-window -t '_v-abc:2'/);
+  // mouse on, scoped to the viewer (per-session, not -g) so the wheel scrolls scrollback.
+  assert.match(tmux.viewerCreate("web-alice-1", "_v-abc", 2), /set-option -t '_v-abc' mouse on/);
 });
 
 test("enableClipboard turns on passthrough and clipboard forwarding", () => {

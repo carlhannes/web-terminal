@@ -27,6 +27,13 @@ TanStack Start app (whose Vite/srvx stack can't reliably do WebSocket upgrades).
   forwards it down our pty → WebSocket → xterm, where the `@xterm/addon-clipboard` handler
   writes the browser clipboard. The transport carries it verbatim (raw binary output
   frames), so nothing else is needed gateway-side.
+- **Mouse / scrollback:** the viewer is created with `set-option -t <viewer> mouse on`
+  (per-session, NOT `-g`). tmux runs on the alternate screen, so without this the wheel
+  becomes cursor-up/down (cycling shell history) instead of scrolling; with it, the wheel
+  scrolls tmux's scrollback. Scoped to the throwaway viewer, so a user's own CLI
+  `tmux attach` to the base session keeps their setting. Copy still works: a plain drag
+  enters tmux copy-mode → OSC 52 → browser clipboard; hold **Shift** while dragging to use
+  xterm's native selection + Cmd/Ctrl+C instead.
 
 ## Run
 
