@@ -367,7 +367,8 @@ function AppPage() {
                     setTabName(t.id, e.currentTarget.value);
                     setEditingTabId(null);
                   }}
-                  className="w-24 rounded bg-black/40 px-1 font-mono text-xs text-foreground outline-none ring-1 ring-primary/60"
+                  // text-base = 16px: below 16px iOS Safari auto-zooms on input focus.
+                  className="w-24 rounded bg-black/40 px-1 font-mono text-base text-foreground outline-none ring-1 ring-primary/60"
                 />
               ) : (
                 <span
