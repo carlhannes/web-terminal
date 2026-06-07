@@ -179,6 +179,9 @@ export const ClientMsgSchema = z.discriminatedUnion("type", [
     session: z.string(),
     name: z.string().optional(),
     requestId: z.string().optional(),
+    // On a split, the window being split FROM: the server opens the new window in that
+    // window's current directory (server-derived cwd, so the wire carries only an id).
+    cwdFromWindowId: z.string().optional(),
   }),
   z.object({ type: z.literal("killWindow"), session: z.string(), windowId: z.string() }),
   z.object({

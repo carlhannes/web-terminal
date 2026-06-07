@@ -254,8 +254,8 @@ export class TerminalGatewayClient {
   killSession(session: string): void {
     this.send({ type: "killSession", session });
   }
-  newWindow(session: string, name?: string, requestId?: string): void {
-    this.send({ type: "newWindow", session, name, requestId });
+  newWindow(session: string, name?: string, requestId?: string, cwdFromWindowId?: string): void {
+    this.send({ type: "newWindow", session, name, requestId, cwdFromWindowId });
   }
   killWindow(session: string, windowId: string): void {
     this.send({ type: "killWindow", session, windowId });

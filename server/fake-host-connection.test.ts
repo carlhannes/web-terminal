@@ -29,6 +29,14 @@ test("FakeHostConnection.exec emulates tmux for the real parsers", async () => {
   wins = parseWindows((await conn.exec(tmux.listWindows("web-alice-1"))).stdout);
   assert.equal(wins.length, 2);
 
+  // new-window with -c (a split inheriting the source pane's cwd) starts there.
+  const splitId = (
+    await conn.exec(tmux.newWindow("web-alice-1", undefined, "/tmp/proj"))
+  ).stdout.trim();
+  wins = parseWindows((await conn.exec(tmux.listWindows("web-alice-1"))).stdout);
+  assert.equal(wins.find((w) => w.id === splitId)?.cwd, "/tmp/proj");
+  await conn.exec(tmux.killWindow(splitId));
+
   // kill-window removes it; kill-session drops the desktop.
   await conn.exec(tmux.killWindow(newId));
   assert.equal(parseWindows((await conn.exec(tmux.listWindows("web-alice-1"))).stdout).length, 1);
