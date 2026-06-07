@@ -80,8 +80,14 @@ const F_WIN = [
   "#{window_name}",
 ].join(FIELD_SEP);
 
-// Command builders. `q` single-quotes a pre-validated token.
+// Command builders. `q` single-quotes a pre-validated (NAME_RE) token.
 const q = (s: string) => `'${s}'`;
+
+// POSIX shell single-quote escaper for values that CANNOT be whitelisted — currently only a
+// directory path (slashes/spaces/quotes are all legal). Wrap in single quotes and turn each
+// embedded ' into '\'' so the value is inert no matter what it contains. Use `q` for tokens
+// that have already passed NAME_RE; reserve `sq` for free-form strings like paths.
+const sq = (s: string) => `'${s.replace(/'/g, "'\\''")}'`;
 
 export const tmux = {
   listSessions: () => `tmux list-sessions -F '${F_SESS}' 2>/dev/null || true`,
@@ -93,8 +99,11 @@ export const tmux = {
   killSession: (session: string) => `tmux kill-session -t ${q(session)}`,
   renameSession: (session: string, name: string) =>
     `tmux rename-session -t ${q(session)} ${q(name)}`,
-  newWindow: (session: string, name?: string) =>
-    `tmux new-window -t ${q(session)} ${name ? `-n ${q(name)} ` : ""}-P -F '#{window_id}'`,
+  // `startDir` (a split's source-pane cwd) opens the new window there via -c; tmux-derived
+  // but sq-escaped so an exotic path can't break out of the command.
+  newWindow: (session: string, name?: string, startDir?: string) =>
+    `tmux new-window -t ${q(session)} ${name ? `-n ${q(name)} ` : ""}` +
+    `${startDir ? `-c ${sq(startDir)} ` : ""}-P -F '#{window_id}'`,
   killWindow: (windowId: string) => `tmux kill-window -t ${q(windowId)}`,
   renameWindow: (windowId: string, name: string) =>
     `tmux rename-window -t ${q(windowId)} ${q(name)}`,

@@ -250,7 +250,8 @@ function AppPage() {
       target: windowId,
       direction,
     });
-    client.newWindow(activeSession, undefined, requestId);
+    // The new pane (a tmux window) should open in the same cwd as the pane we split from.
+    client.newWindow(activeSession, undefined, requestId, windowId);
   }
   function closePane(windowId: string) {
     if (activeSession) client.killWindow(activeSession, windowId);

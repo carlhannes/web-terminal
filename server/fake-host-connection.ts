@@ -142,7 +142,8 @@ export class FakeHostConnection implements HostConnection {
     if (cmd.includes("new-window")) {
       const s = this.sessions.get(argAfter("-t", cmd) ?? "");
       if (!s) return ok("");
-      const win = this.addWindow(s, argAfter("-n", cmd) ?? "bash");
+      // Honor -c (start-directory) so split-inherits-cwd is testable; else the default.
+      const win = this.addWindow(s, argAfter("-n", cmd) ?? "bash", argAfter("-c", cmd));
       return ok(`${win.id}\n`);
     }
     if (cmd.includes("new-session")) {
@@ -190,13 +191,13 @@ export class FakeHostConnection implements HostConnection {
     return s;
   }
 
-  private addWindow(s: FakeSession, name: string): FakeWindow {
+  private addWindow(s: FakeSession, name: string, cwd = "/home/user"): FakeWindow {
     s.windows.forEach((w) => (w.active = false));
     const win: FakeWindow = {
       id: `@${this.winSeq++}`,
       index: s.windows.length,
       name,
-      cwd: "/home/user",
+      cwd,
       active: true,
     };
     s.windows.push(win);

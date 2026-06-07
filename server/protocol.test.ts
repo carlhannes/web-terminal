@@ -25,6 +25,11 @@ test("ClientMsgSchema accepts valid messages", () => {
     ClientMsgSchema.safeParse({ type: "input", session: "web-a-1", windowId: "@0", data: "ls\n" })
       .success,
   );
+  // newWindow may carry cwdFromWindowId (split inherits that window's cwd).
+  assert.ok(
+    ClientMsgSchema.safeParse({ type: "newWindow", session: "web-a-1", cwdFromWindowId: "@2" })
+      .success,
+  );
 });
 
 test("ClientMsgSchema rejects malformed messages", () => {

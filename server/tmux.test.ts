@@ -103,6 +103,20 @@ test("command builders quote pre-validated tokens", () => {
     tmux.viewerCreate("web-alice-1", "_v-abc", 2),
     /new-session -d -t 'web-alice-1' -s '_v-abc'/,
   );
+  // startDir (split inherits cwd) adds -c; paths aren't NAME_RE-safe so they're sq-escaped.
+  assert.equal(
+    tmux.newWindow("web-alice-1", undefined, "/tmp/proj"),
+    "tmux new-window -t 'web-alice-1' -c '/tmp/proj' -P -F '#{window_id}'",
+  );
+  assert.equal(
+    tmux.newWindow("web-alice-1", "logs", "/tmp/proj"),
+    "tmux new-window -t 'web-alice-1' -n 'logs' -c '/tmp/proj' -P -F '#{window_id}'",
+  );
+  // A space and an embedded single quote in the path stay contained (… 'x'\''y' …).
+  assert.equal(
+    tmux.newWindow("web-alice-1", undefined, "/home/a b/x'y"),
+    "tmux new-window -t 'web-alice-1' -c '/home/a b/x'\\''y' -P -F '#{window_id}'",
+  );
   // Must NOT set destroy-unattached: tmux would destroy the detached viewer before attach.
   assert.ok(!tmux.viewerCreate("web-alice-1", "_v-abc", 2).includes("destroy-unattached"));
   assert.match(tmux.viewerCreate("web-alice-1", "_v-abc", 2), /select-window -t '_v-abc:2'/);

@@ -252,7 +252,12 @@ class GatewayConnection {
         return;
       case "newWindow":
         if (this.owns(msg.session) && (!msg.name || isValidName(msg.name))) {
-          const res = await this.conn.exec(tmux.newWindow(msg.session, msg.name));
+          // Split: inherit the source window's live cwd. Looked up from tmux here (not sent
+          // by the client), so only a window id crosses the wire. Unknown/empty -> default dir.
+          const startDir = msg.cwdFromWindowId
+            ? (await this.getWindows(msg.session)).find((w) => w.id === msg.cwdFromWindowId)?.cwd
+            : undefined;
+          const res = await this.conn.exec(tmux.newWindow(msg.session, msg.name, startDir));
           const windowId = res.stdout.trim().split("\n")[0] ?? "";
           // Echo the new id BEFORE the windows snapshot so a split can place it
           // (otherwise reconcile would append it as its own tab).
