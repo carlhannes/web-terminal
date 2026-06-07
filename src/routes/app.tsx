@@ -501,7 +501,13 @@ function AppPage() {
           onClose={closePane}
         />
       )}
-      {isMobile && <MobileKeyBar onKey={sendKey} />}
+      {isMobile && (
+        <MobileKeyBar
+          onKey={sendKey}
+          zoom={activeLeaf ? (zoomByWindowId[activeLeaf] ?? 1) : 1}
+          onZoomChange={(z) => activeLeaf && setZoom(activeLeaf, z)}
+        />
+      )}
 
       {/* Tab context menu (right-click). Backdrop closes it on any outside click. */}
       {tabMenu && (
